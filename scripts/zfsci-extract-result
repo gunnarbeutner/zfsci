@@ -6,17 +6,7 @@ fi
 
 . ./zfsci.conf
 
-if [ -z "$1" ]; then
-	echo "Syntax: $0 <device>"
-	echo "Extracts test results from <device>."
-	exit 1
-fi
-
-DEVICE=$1
-
-ROOTPART=${DEVICE}1
-SWAPPART=${DEVICE}2
-POOLPART=${DEVICE}3
+ROOTPART=${INSTALLDEV}1
 
 # make sure old partitions aren't mounted anymore
 umount /mnt/dev /mnt/sys /mnt/proc /mnt
@@ -27,7 +17,7 @@ if ! mount $ROOTPART /mnt; then
 	exit 1
 fi
 
-if [ ! -e /mnt/.zfsci ];
+if [ ! -e /mnt/.zfsci ]; then
 	echo "There are no test results on this device."
 	umount /mnt
 	exit 1
@@ -36,11 +26,16 @@ fi
 # mark the tests as 'finished'
 rm -f /mnt/.zfsci
 
-RESULTDIR=/var/lib/zfsci/result-`date +%s`
-mkdir -p $RESULTDIR
+chroot /mnt /opt/zfsci/zfsci-run-stage post
 
-for task in `ls -1 task/post`; do
-	task/post/$task $RESULTDIR
-done
+TESTID=`cat /mnt/var/lib/zfsci/testid`
+if [ -z "$TESTID" ]; then
+	echo "Error: Test ID is empty."
+	exit 1
+fi
+
+RESULTDIR=/var/lib/zfsci/result-$TESTID
+mkdir -p $RESULTDIR
+cp -a /mnt/var/lib/zfsci/* $RESULTDIR
 
 exit 0

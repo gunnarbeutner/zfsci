@@ -6,31 +6,28 @@ fi
 
 . ./zfsci.conf
 
-if [ -z "$2" ]; then
-	echo "Syntax: $0 <device> <config>"
-	echo "Installs a zfsci node. All data on <device>" \
-		" is destroyed in the process."
+if [ "$1" != "DESTROY" ]; then
+	echo "Syntax: $0 DESTROY"
+	echo "Installs a zfsci node. All data on the configured" \
+		"device is destroyed in the process."
 	exit 1
 fi
 
-DEVICE=$1
-CONFIG=$2
-
-ROOTPART=${DEVICE}1
-SWAPPART=${DEVICE}2
-POOLPART=${DEVICE}3
+ROOTPART=${INSTALLDEV}1
+SWAPPART=${INSTALLDEV}2
+POOLPART=${INSTALLDEV}3
 
 # make sure old partitions aren't mounted anymore
 umount /mnt/dev /mnt/sys /mnt/proc /mnt
 
 # destroy old partition table
-dd if=/dev/zero of=$DEVICE bs=512 count=1
+dd if=/dev/zero of=$INSTALLDEV bs=512 count=1
 
 # create new partitions
-parted --script -- $DEVICE mktable msdos
-parted --script -- $DEVICE mkpart primary ext2 1M 2G
-parted --script -- $DEVICE mkpart primary linux-swap 2G 4G
-parted --script -- $DEVICE mkpart primary sun-ufs 4G -1s
+parted --script -- $INSTALLDEV mktable msdos
+parted --script -- $INSTALLDEV mkpart primary ext2 1M 2G
+parted --script -- $INSTALLDEV mkpart primary linux-swap 2G 4G
+parted --script -- $INSTALLDEV mkpart primary sun-ufs 4G -1s
 
 # create / file system and swap
 mke2fs -j -m 0 -L / -I 128 $ROOTPART
@@ -85,12 +82,16 @@ mount --bind /sys /mnt/sys
 mount -t proc none /mnt/proc
 chroot /mnt aptitude update
 
+# install ntpdate
+chroot /mnt aptitude install -y ntpdate
+
 # install kdump
 # interestingly kdump-tools uses 'file' but doesn't have a
 # package dependency for it
 chroot /mnt aptitude install -y kdump-tools file initramfs-tools
 
-# copy crash kernel
+# build initrd for the crash kernel and move files
+# to /crashkernel
 CRASHKERNEL="vmlinuz-`uname -r`"
 CRASHINITRD="initrd.img-`uname -r`"
 cp /boot/$CRASHKERNEL /mnt/boot
@@ -117,14 +118,17 @@ KEXEC
 # copy zfsci scripts
 cp -a /opt/zfsci /mnt/opt
 
+# set testid
+mkdir -p /mnt/var/lib/zfsci
+echo `date +%s` > /mnt/var/lib/zfsci/testid
+
 # run build tasks
-for task in `ls -1 tasks/build`; do
-	tasks/build/$task
-done
+chroot /mnt /opt/zfsci/zfsci-run-stage build
 
 # install test launcher
 cat > /mnt/etc/rc.local <<RCLOCAL
-/opt/zfsci/zfsci-run-tests
+/opt/zfsci/zfsci-run-stage test
+reboot
 RCLOCAL
 
 # boot the new system

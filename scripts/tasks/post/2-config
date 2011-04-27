@@ -1,0 +1,5 @@
+#!/bin/sh
+mkdir -p $RESULTDIR/config
+cp /opt/zfsci/*.conf $RESULTDIR/config
+
+zfsci-finish-task PASSED

@@ -1,0 +1,10 @@
+#!/bin/sh
+. /opt/zfsci/zfsci.conf
+
+POOLPART=${INSTALLDEV}3
+
+if zpool create -f tank $POOLPART; then
+	zfsci-finish-task PASSED
+else
+	zfsci-finish-task FAILED
+fi

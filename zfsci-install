@@ -1,0 +1,3 @@
+#!/bin/sh
+rm -Rf /var/lib/export/zfsci && mv build/nfsroot /var/lib/export/zfsci
+rm -Rf /var/lib/tftpboot/zfsci && mv build/tftpboot /var/lib/tftpboot/zfsci

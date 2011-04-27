@@ -1,0 +1,20 @@
+#!/bin/sh
+if ! cd `dirname $0`; then
+	echo "Could not cd to scripts directory."
+	exit 1
+fi
+
+if [ -z "$1" ]; then
+	echo "Syntax: $0 <stage>"
+	exit 1
+fi
+
+STAGE=$1
+
+. ./zfsci.conf
+
+ntpdate pool.ntp.org >/dev/null 2>&1
+
+for TASK in `ls -1 tasks/$STAGE`; do
+	./zfsci-run-task tasks/$STAGE/$TASK
+done

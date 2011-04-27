@@ -77,7 +77,7 @@ chroot build/nfsroot update-rc.d -f rsyslog remove
 chroot build/nfsroot update-rc.d -f cron remove
 
 # set root password (if you want to log in on the zfsci nodes you'll have to
-# set a root password for the build box (or figure out a better way for this
+# set a root password for the build box or figure out a better way for this)
 echo "Setting root password..."
 grep -v ^root build/nfsroot/etc/shadow > build/nfsroot/etc/.shadow &&
 	grep ^root /etc/shadow >> build/nfsroot/etc/.shadow &&
@@ -107,6 +107,11 @@ cat > build/nfsroot/etc/hosts <<HOSTS
 127.0.0.1	localhost
 127.0.0.1	$MASTER_HOSTNAME
 HOSTS
+
+echo "Setting up script for result extraction..."
+cat > build/nfsroot/etc/rc.local <<RCLOCAL
+/opt/zfsci/zfsci-extract-result
+RCLOCAL
 
 echo "Copying zfsci scripts..."
 cp -a scripts build/nfsroot/opt/zfsci

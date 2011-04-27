@@ -1,23 +1,23 @@
 #!/bin/sh
 if [ -z "$1" ]; then
-	echo "Syntax: $0 <test>"
+	echo "Syntax: $0 <task>"
 	exit 1
 fi
 
-TEST=$1
-TASK=tasks/test/$TEST
+TASK=$1
 
 if [ ! -e $TASK ]; then
 	echo "Task not found: $TASK"
 	exit 1
 fi
 
-RESULTDIR=/var/lib/zfsci/results/$TEST
+export RESULTDIR=/var/lib/zfsci/$TASK
 mkdir -p $RESULTDIR
 
 echo -n "Running $TASK... "
 chmod u+x $TASK
-PATH=`dirname $0`:$PATH $TASK \
+SCRIPTDIR=`dirname $0`
+PATH=`readlink -f $SCRIPTDIR`:$PATH $TASK \
 	0</dev/null \
 	1>$RESULTDIR/stdout \
 	2>$RESULTDIR/stderr \
