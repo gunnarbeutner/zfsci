@@ -1,0 +1,32 @@
+#!/bin/sh
+if [ -z "$1" ]; then
+	echo "Syntax: $0 <test>"
+	exit 1
+fi
+
+TEST=$1
+TASK=tasks/test/$TEST
+
+if [ ! -e $TASK ]; then
+	echo "Task not found: $TASK"
+	exit 1
+fi
+
+RESULTDIR=/var/lib/zfsci/results/$TEST
+mkdir -p $RESULTDIR
+
+echo -n "Running $TASK... "
+chmod u+x $TASK
+PATH=`dirname $0`:$PATH $TASK \
+	0</dev/null \
+	1>$RESULTDIR/stdout \
+	2>$RESULTDIR/stderr \
+	3>$RESULTDIR/status
+
+if [ -z "`cat $RESULTDIR/status`" ]; then
+	echo "FAILED" > $RESULTDIR/status
+fi
+
+cat $RESULTDIR/status
+
+exit 0

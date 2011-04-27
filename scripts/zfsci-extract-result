@@ -1,0 +1,46 @@
+#!/bin/sh
+if ! cd `dirname $0`; then
+	echo "Could not cd to scripts directory."
+	exit 1
+fi
+
+. ./zfsci.conf
+
+if [ -z "$1" ]; then
+	echo "Syntax: $0 <device>"
+	echo "Extracts test results from <device>."
+	exit 1
+fi
+
+DEVICE=$1
+
+ROOTPART=${DEVICE}1
+SWAPPART=${DEVICE}2
+POOLPART=${DEVICE}3
+
+# make sure old partitions aren't mounted anymore
+umount /mnt/dev /mnt/sys /mnt/proc /mnt
+
+# try and mount the / file system
+if ! mount $ROOTPART /mnt; then
+	echo "Couldn't mount root fs."
+	exit 1
+fi
+
+if [ ! -e /mnt/.zfsci ];
+	echo "There are no test results on this device."
+	umount /mnt
+	exit 1
+fi
+
+# mark the tests as 'finished'
+rm -f /mnt/.zfsci
+
+RESULTDIR=/var/lib/zfsci/result-`date +%s`
+mkdir -p $RESULTDIR
+
+for task in `ls -1 task/post`; do
+	task/post/$task $RESULTDIR
+done
+
+exit 0

@@ -1,0 +1,11 @@
+#!/bin/sh
+if [ -z "$1" ]; then
+	echo "Syntax: $0 <result-dir>"
+	exit 1
+fi
+
+RESULTDIR=$1
+
+ls -l /mnt/boot > $1/ls-boot
+find /mnt/var/crash/[0-9]* -type f -print0 | \
+	xargs -0 --replace=X cp X $RESULTDIR

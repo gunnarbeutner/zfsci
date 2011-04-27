@@ -1,0 +1,135 @@
+#!/bin/sh
+if ! cd `dirname $0`; then
+	echo "Could not cd to scripts directory."
+	exit 1
+fi
+
+. ./zfsci.conf
+
+if [ -z "$2" ]; then
+	echo "Syntax: $0 <device> <config>"
+	echo "Installs a zfsci node. All data on <device>" \
+		" is destroyed in the process."
+	exit 1
+fi
+
+DEVICE=$1
+CONFIG=$2
+
+ROOTPART=${DEVICE}1
+SWAPPART=${DEVICE}2
+POOLPART=${DEVICE}3
+
+# make sure old partitions aren't mounted anymore
+umount /mnt/dev /mnt/sys /mnt/proc /mnt
+
+# destroy old partition table
+dd if=/dev/zero of=$DEVICE bs=512 count=1
+
+# create new partitions
+parted --script -- $DEVICE mktable msdos
+parted --script -- $DEVICE mkpart primary ext2 1M 2G
+parted --script -- $DEVICE mkpart primary linux-swap 2G 4G
+parted --script -- $DEVICE mkpart primary sun-ufs 4G -1s
+
+# create / file system and swap
+mke2fs -j -m 0 -L / -I 128 $ROOTPART
+mkswap $SWAPPART
+
+# try and mount the / file system
+if ! mount $ROOTPART /mnt; then
+	echo "Couldn't mount root fs."
+	exit 1
+fi
+
+# mark the tests as 'in progress'
+touch /mnt/.zfsci
+
+# install base system
+if ! debootstrap squeeze /mnt  $DEBIAN_MIRROR; then
+	echo "debootstrap failed."
+	exit 1
+fi
+
+# set hostname
+echo $NODE_HOSTNAME > /mnt/etc/hostname
+
+# set up fstab
+cat > /mnt/etc/fstab <<FSTAB
+$ROOTPART	/	ext3	defaults	0	0
+$SWAPPART	none	swap	sw		0	0
+FSTAB
+
+# set up networking
+cat > /mnt/etc/network/interfaces <<INTERFACES
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+INTERFACES
+
+# set root password
+grep -v ^root /mnt/etc/shadow > /mnt/etc/.shadow &&
+	grep ^root /etc/shadow >> /mnt/etc/.shadow &&
+	cat /mnt/etc/.shadow > /mnt/etc/shadow &&
+	rm -f /mnt/etc/.shadow
+
+# disable syslog and cron
+chroot /mnt update-rc.d -f rsyslog remove
+chroot /mnt update-rc.d -f cron remove
+
+# update package lists
+mount --bind /dev /mnt/dev
+mount --bind /sys /mnt/sys
+mount -t proc none /mnt/proc
+chroot /mnt aptitude update
+
+# install kdump
+# interestingly kdump-tools uses 'file' but doesn't have a
+# package dependency for it
+chroot /mnt aptitude install -y kdump-tools file initramfs-tools
+
+# copy crash kernel
+CRASHKERNEL="vmlinuz-`uname -r`"
+CRASHINITRD="initrd.img-`uname -r`"
+cp /boot/$CRASHKERNEL /mnt/boot
+cp -a /lib/modules/`uname -r` /mnt/lib/modules
+chroot /mnt update-initramfs -c -k `uname -r`
+mkdir -p /mnt/crashkernel
+mv /mnt/boot/$CRASHKERNEL /mnt/boot/$CRASHINITRD /mnt/crashkernel
+
+mkdir -p /mnt/var/crash
+
+cat >> /mnt/etc/default/kdump-tools <<KDUMP
+USE_KDUMP=1
+KDUMP_SYSCTL="kernel.panic_on_oops=1"
+MAKEDUMP_ARGS="-c -d 31"
+
+KDUMP_KERNEL="/crashkernel/$CRASHKERNEL"
+KDUMP_INITRD="/crashkernel/$CRASHINITRD"
+KDUMP
+
+cat >> /mnt/etc/default/kexec <<KEXEC
+LOAD_KEXEC=false
+KEXEC
+
+# copy zfsci scripts
+cp -a /opt/zfsci /mnt/opt
+
+# run build tasks
+for task in `ls -1 tasks/build`; do
+	tasks/build/$task
+done
+
+# install test launcher
+cat > /mnt/etc/rc.local <<RCLOCAL
+/opt/zfsci/zfsci-run-tests
+RCLOCAL
+
+# boot the new system
+mount -o remount,ro /mnt
+KERNEL=`find /mnt/boot -name vmlinuz\* -type f`
+INITRD=`find /mnt/boot -name initrd\* -type f`
+kexec --command-line="root=$ROOTPART ro crashkernel=128M" \
+	--initrd=$INITRD $KERNEL

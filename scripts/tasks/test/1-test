@@ -1,0 +1,3 @@
+#!/bin/sh
+lsof -n -p $$
+zfsci-finish-test PASSED
