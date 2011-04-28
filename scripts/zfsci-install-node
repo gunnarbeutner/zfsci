@@ -129,6 +129,7 @@ chroot /mnt /opt/zfsci/zfsci-run-stage build
 cat > /mnt/etc/rc.local <<RCLOCAL
 /opt/zfsci/zfsci-run-stage test
 reboot
+exit 0
 RCLOCAL
 
 # boot the new system

@@ -111,6 +111,7 @@ HOSTS
 echo "Setting up script for result extraction..."
 cat > build/nfsroot/etc/rc.local <<RCLOCAL
 /opt/zfsci/zfsci-extract-result
+exit 0
 RCLOCAL
 
 echo "Copying zfsci scripts..."
