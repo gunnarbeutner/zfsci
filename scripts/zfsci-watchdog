@@ -15,7 +15,15 @@ if [ -f $PIDFILE ]; then
 	kill -KILL `cat $PIDFILE`
 fi
 
-(exec sh -c "echo \$\$ > $PIDFILE; sleep $TIMEOUT; echo c > /proc/sysrq-trigger" &)
+if [ $TIMEOUT -gt 0 ]; then
+	(exec sh -c "echo \$\$ > $PIDFILE; sleep $TIMEOUT; echo c > /proc/sysrq-trigger" &)
 
-echo "Watchdog has been (re-)armed."
+	# TODO: find a more reliable way of checking that the sub-shell has written its pid file.
+	sleep 1
+
+	echo "Watchdog has been (re-)armed: $TIMEOUT seconds"
+else
+	echo "Watchdog has been disabled."
+fi
+
 exit 0
