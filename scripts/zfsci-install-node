@@ -25,9 +25,9 @@ dd if=/dev/zero of=$INSTALLDEV bs=512 count=1
 
 # create new partitions
 parted --script -- $INSTALLDEV mktable msdos
-parted --script -- $INSTALLDEV mkpart primary ext2 1M 2G
-parted --script -- $INSTALLDEV mkpart primary linux-swap 2G 4G
-parted --script -- $INSTALLDEV mkpart primary sun-ufs 4G -1s
+parted --script -- $INSTALLDEV mkpart primary ext2 1M 10G
+parted --script -- $INSTALLDEV mkpart primary linux-swap 10G 14G
+parted --script -- $INSTALLDEV mkpart primary sun-ufs 14G -1s
 
 # create / file system and swap
 mke2fs -j -m 0 -L / -I 128 $ROOTPART
