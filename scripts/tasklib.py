@@ -112,11 +112,7 @@ class Dispatcher(object):
 				if not dependency in deptask.provides:
 					continue
 
-				Dispatcher.rearm_watchdog(7200)
-
 				Dispatcher.run_task_once(deptask)
-
-				Dispatcher.rearm_watchdog(300)
 
 				if deptask.get_output('status') == Task.PASSED:
 					depresolved = True
@@ -128,7 +124,9 @@ class Dispatcher(object):
 			(task, task.__class__)
 
 		cwd = os.getcwd()
+		Dispatcher.rearm_watchdog(7200)
 		task._run()
+		Dispatcher.rearm_watchdog(0)
 		os.chdir(cwd)
 
 		print "Task result: %s" % (task.get_output('status'))
