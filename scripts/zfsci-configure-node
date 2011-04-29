@@ -31,9 +31,6 @@ touch /mnt/.zfsci
 rm -Rf /mnt/opt/zfsci
 cp -a /opt/zfsci /mnt/opt
 
-# set testid
-echo `date +%s` > /mnt/opt/zfsci/output_files/testid
-
 # copy test config
 cp $CONFIG /mnt/opt/zfsci/job.json
 
