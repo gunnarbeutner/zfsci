@@ -1,5 +1,7 @@
 import os
 import json
+import traceback
+from time import time
 
 class Task(object):
 	description = ""
@@ -41,20 +43,26 @@ class Task(object):
 			status = self.prepare()
 
 			if status == None or status == Task.PASSED:
+				self.set_output('run_start', time())
 				status = self.run()
+				self.set_output('run_end', time())
 
 			if status == None:
 				status = Task.FAILED
 		except Exception as exc:
 			status = Task.FAILED
 
-			# TODO: store exc info
+			self.set_output('exception', str(exc))
+			self.set_output('stacktrace', traceback.format_exc())
+
 			print exc
 
 		try:
 			self.finish()
 		except Exception as exc:
-			# TODO: store exc info
+			self.set_output('exception', str(exc))
+			self.set_output('stacktrace', traceback.format_exc())
+
 			print exc
 
 		self.set_output('status', status)
@@ -152,6 +160,7 @@ class Dispatcher(object):
 	@staticmethod
 	def save_hive():
 		assert Dispatcher.hive != None
+
 		fp = open(Dispatcher.hivefile, 'w')
 		json.dump(Dispatcher.hive, fp)
 
