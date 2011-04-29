@@ -24,6 +24,14 @@ rm -Rf build
 mkdir -p build/nfsroot build/tftpboot
 zfsci_echo "DONE"
 
+zfsci_echo -n "Building NFS root filesystem... "
+if ! debootstrap squeeze build/nfsroot $DEBIAN_MIRROR; then
+	zfsci_echo "FAILED"
+	zfsci_echo "Error: debootstrap failed."
+	exit 1
+fi
+zfsci_echo "DONE"
+
 cat > build/tftpboot/pxelinux-config <<PXELINUX
 prompt 1
 timeout 10
@@ -79,13 +87,6 @@ rm -Rf build/initramfs-tools
 ln -s initrd.img-$KERNELVER build/tftpboot/initrd
 
 zfsci_echo "DONE"
-
-zfsci_echo -n "Building NFS root filesystem... "
-if ! debootstrap squeeze build/nfsroot $DEBIAN_MIRROR; then
-	zfsci_echo "FAILED"
-	zfsci_echo "Error: debootstrap failed."
-	exit 1
-fi
 
 # disable syslog and cron
 zfsci_echo -n "Disabling syslog and cron... "
