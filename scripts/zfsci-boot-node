@@ -13,5 +13,5 @@ fi
 
 # boot the new system
 ROOTPART=${INSTALLDEV}1
-kexec --command-line="root=$ROOTPART ro crashkernel=128M" \
+kexec --command-line="root=$ROOTPART ro crashkernel=128M nomodeset noplymouth" \
 	--initrd=/mnt/initrd.img /mnt/vmlinuz
