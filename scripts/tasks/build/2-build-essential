@@ -1,6 +1,0 @@
-#!/bin/sh
-if aptitude install -y build-essential git-core; then
-	zfsci-finish-task PASSED
-else
-	zfsci-finish-task FAILED
-fi

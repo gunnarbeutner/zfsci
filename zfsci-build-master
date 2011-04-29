@@ -6,9 +6,23 @@ fi
 
 . ./zfsci.conf
 
+LOGFILE=`mktemp --tmpdir zfsci.XXXXXX`
+
+echo "Building zfsci image... (build output can be found in $LOGFILE)"
+
+# redirect stdout/stderr to log file
+exec 9>&1 1>$LOGFILE 2>&1
+
+zfsci_echo() {
+	echo $@
+	echo $@ >&9
+}
+
 # re-create build directory
+zfsci_echo -n "Creating build directory... "
 rm -Rf build
 mkdir -p build/nfsroot build/tftpboot
+zfsci_echo "DONE"
 
 cat > build/tftpboot/pxelinux-config <<PXELINUX
 prompt 1
@@ -17,21 +31,23 @@ default linux
 
 label linux
 	kernel $TFTP_PATH/kernel
-	append root=/dev/nfs initrd=$TFTP_PATH/initrd netboot=nfs ro nfsroot=$NFS_PATH,v3,udp ip=dhcp panic=100 vga=0x317
+	append root=/dev/nfs initrd=$TFTP_PATH/initrd netboot=nfs ro nfsroot=$NFS_PATH,v3,udp ip=dhcp panic=300 vga=0x317
 PXELINUX
 
-echo "Copying kernel and modules..."
+zfsci_echo -n "Copying kernel and modules... "
 KERNELVER=`uname -r`
 
 if ! grep ^CONFIG_CRASH_DUMP=y /boot/config-$KERNELVER >/dev/null 2>&1; then
-	echo "Your kernel does not support crash dumps (CONFIG_CRASH_DUMP)."
+	zfsci_echo "FAILED"
+	zfsci_echo "Error: Your kernel does not support crash dumps (CONFIG_CRASH_DUMP)."
 	exit 1
 fi
 
 KERNEL=/boot/vmlinuz-$KERNELVER
 INITRD=/boot/initrd.img-$KERNELVER
 if [ ! -e $KERNEL ]; then
-	echo "Could not find kernel (in: $KERNEL)."
+	zfsci_echo "FAILED"
+	zfsci_echo "Error: Could not find kernel (in: $KERNEL)."
 	exit 1
 fi
 cp $KERNEL build/tftpboot/
@@ -45,7 +61,9 @@ ln -s vmlinuz-$KERNELVER build/tftpboot/kernel
 mkdir -p build/nfsroot/boot
 cp $KERNEL build/nfsroot/boot
 
-echo "Generating initrd..."
+zfsci_echo "DONE"
+
+zfsci_echo -n "Generating initrd... "
 cp -a /etc/initramfs-tools build/
 cat >> build/initramfs-tools/initramfs.conf <<NFSCONFIG
 MODULES=netboot
@@ -53,45 +71,47 @@ BOOT=nfs
 NFSCONFIG
 
 if ! mkinitramfs -d build/initramfs-tools -o build/tftpboot/initrd.img-$KERNELVER $KERNELVER; then
-	echo "mkinitramfs failed."
+	zfsci_echo "FAILED"
+	zfsci_echo "Error: mkinitramfs failed."
 	exit 1
 fi
 rm -Rf build/initramfs-tools
 ln -s initrd.img-$KERNELVER build/tftpboot/initrd
 
-DEBOOTSTRAP_OUTPUT="/tmp/debootstrap.`date +%s`"
-echo "Building NFS root filesystem..."
-if ! debootstrap squeeze build/nfsroot $DEBIAN_MIRROR >$DEBOOTSTRAP_OUTPUT 2>&1; then
-	cat $DEBOOTSTRAP_OUTPUT
-	rm -f $DEBOOTSTRAP_OUTPUT
+zfsci_echo "DONE"
 
-	echo "debootstrap failed."
+zfsci_echo -n "Building NFS root filesystem... "
+if ! debootstrap squeeze build/nfsroot $DEBIAN_MIRROR; then
+	zfsci_echo "FAILED"
+	zfsci_echo "Error: debootstrap failed."
 	exit 1
 fi
 
-rm -f $DEBOOTSTRAP_OUTPUT
-
 # disable syslog and cron
-echo "Disabling syslog and cron..."
+zfsci_echo -n "Disabling syslog and cron... "
 chroot build/nfsroot update-rc.d -f rsyslog remove
 chroot build/nfsroot update-rc.d -f cron remove
+zfsci_echo "DONE"
 
 # set root password (if you want to log in on the zfsci nodes you'll have to
 # set a root password for the build box or figure out a better way for this)
-echo "Setting root password..."
+zfsci_echo -n "Setting root password... "
 grep -v ^root build/nfsroot/etc/shadow > build/nfsroot/etc/.shadow &&
 	grep ^root /etc/shadow >> build/nfsroot/etc/.shadow &&
 	cat build/nfsroot/etc/.shadow > build/nfsroot/etc/shadow &&
 	rm -f build/nfsroot/etc/.shadow
+zfsci_echo "DONE"
 
-echo "Updating package lists..."
+zfsci_echo -n "Updating package lists... "
 chroot build/nfsroot aptitude update
+zfsci_echo "DONE"
 
-echo "Installing utilities..."
+zfsci_echo -n "Installing utilities... "
 chroot build/nfsroot aptitude install -y kexec-tools debootstrap \
-	parted hdparm
+	parted hdparm ntpdate
+zfsci_echo "DONE"
 
-echo "Setting up network interfaces..."
+zfsci_echo -n "Setting up network... "
 # We don't have to worry about eth0/etc. here, the kernel already
 # sets up this interface for us thanks to the 'ip=dhcp' kernel
 # parameter.
@@ -100,7 +120,6 @@ auto lo
 iface lo inet loopback
 INTERFACES
 
-echo "Setting hostname..."
 echo $MASTER_HOSTNAME > build/nfsroot/etc/hostname
 
 cat > build/nfsroot/etc/hosts <<HOSTS
@@ -108,14 +127,19 @@ cat > build/nfsroot/etc/hosts <<HOSTS
 127.0.0.1	$MASTER_HOSTNAME
 HOSTS
 
-echo "Setting up script for result extraction..."
+zfsci_echo "DONE"
+
+zfsci_echo -n "Setting up zfsci scripts... "
 cat > build/nfsroot/etc/rc.local <<RCLOCAL
+#!/bin/sh
+ntpdate pool.ntp.org >/dev/null 2>&1 &
 /opt/zfsci/zfsci-extract-result
 exit 0
 RCLOCAL
 
-echo "Copying zfsci scripts..."
 cp -a scripts build/nfsroot/opt/zfsci
 cp zfsci.conf build/nfsroot/opt/zfsci
+zfsci_echo "DONE"
 
-echo "Build completed."
+zfsci_echo "Build completed."
+exit 0

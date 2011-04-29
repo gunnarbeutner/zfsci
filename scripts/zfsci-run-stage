@@ -1,20 +1,32 @@
-#!/bin/sh
-if ! cd `dirname $0`; then
-	echo "Could not cd to scripts directory."
-	exit 1
-fi
+#!/usr/bin/env python
+import sys
+import os
+import glob
+from tasklib import Dispatcher
 
-if [ -z "$1" ]; then
-	echo "Syntax: $0 <stage>"
-	exit 1
-fi
+if len(sys.argv) < 3:
+	print 'Syntax: %s <tasks-dir> <stage> [config-file]' % (sys.argv[0])
+	sys.exit(1)
 
-STAGE=$1
+tasksdir = sys.argv[1]
+stage = sys.argv[2]
 
-. ./zfsci.conf
+if not os.path.isdir(tasksdir):
+	print 'Tasks dir "%s" does not exist.' % (tasksdir)
+	sys.exit(1)
 
-ntpdate pool.ntp.org >/dev/null 2>&1
+if len(sys.argv) >= 4:
+	configfile = sys.argv[3]
 
-for TASK in `ls -1 tasks/$STAGE`; do
-	./zfsci-run-task tasks/$STAGE/$TASK
-done
+	if not os.path.isfile(configfile):
+		print 'Config file "%s" does not exist.' % (configfile)
+		sys.exit(1)
+
+	Dispatcher.load_hive(configfile)
+
+for taskfile in glob.glob('%s/*.py' % (tasksdir)):
+	execfile(taskfile)
+
+Dispatcher.run_stage(stage)
+
+sys.exit(0)

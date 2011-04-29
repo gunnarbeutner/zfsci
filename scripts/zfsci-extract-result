@@ -6,29 +6,23 @@ fi
 
 . ./zfsci.conf
 
-ROOTPART=${INSTALLDEV}1
-
-# make sure old partitions aren't mounted anymore
-umount /mnt/dev /mnt/sys /mnt/proc /mnt
-
 # try and mount the / file system
-if ! mount $ROOTPART /mnt; then
-	echo "Couldn't mount root fs."
+if ! ./zfsci-mount-node; then
+	echo "Node root FS could not be mounted."
 	exit 1
 fi
 
 if [ ! -e /mnt/.zfsci ]; then
 	echo "There are no test results on this device."
-	umount /mnt
 	exit 1
 fi
 
 # mark the tests as 'finished'
 rm -f /mnt/.zfsci
 
-chroot /mnt /opt/zfsci/zfsci-run-stage post
+chroot /mnt /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks post /opt/zfsci/job.json
 
-TESTID=`cat /mnt/var/lib/zfsci/testid`
+TESTID=`cat /mnt/opt/zfsci/output_files/testid`
 if [ -z "$TESTID" ]; then
 	echo "Error: Test ID is empty."
 	exit 1
@@ -36,6 +30,7 @@ fi
 
 RESULTDIR=/var/lib/zfsci/result-$TESTID
 mkdir -p $RESULTDIR
-cp -a /mnt/var/lib/zfsci/* $RESULTDIR
+cp -a /mnt/opt/zfsci/result_files/* $RESULTDIR
+cp /mnt/opt/zfsci/job.json $RESULTDIR
 
 exit 0

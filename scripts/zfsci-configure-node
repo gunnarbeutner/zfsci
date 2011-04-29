@@ -1,0 +1,43 @@
+#!/bin/sh
+if ! cd `dirname $0`; then
+	echo "Could not cd to scripts directory."
+	exit 1
+fi
+
+. ./zfsci.conf
+
+if [ -z "$1" ]; then
+	echo "Syntax: $0 <config>"
+	echo "Configures a zfsci node using the specified config."
+	exit 1
+fi
+
+CONFIG=$1
+
+if ! ./zfsci-mount-node; then
+	echo "Node root FS could not be mounted."
+	exit 1
+fi
+
+if [ ! -f $CONFIG ]; then
+	echo "The config file you specified does not exist."
+	exit 1
+fi
+
+# mark the tests as 'in progress'
+touch /mnt/.zfsci
+
+# copy zfsci scripts
+rm -Rf /mnt/opt/zfsci
+cp -a /opt/zfsci /mnt/opt
+
+# set testid
+echo `date +%s` > /mnt/opt/zfsci/output_files/testid
+
+# copy test config
+cp $CONFIG /mnt/opt/zfsci/job.json
+
+# run build tasks
+chroot /mnt /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks build /opt/zfsci/job.json
+
+exit 0

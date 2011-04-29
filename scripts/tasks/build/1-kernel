@@ -1,6 +1,0 @@
-#!/bin/sh
-if aptitude install -y linux-image-amd64; then
-	zfsci-finish-task PASSED
-else
-	zfsci-finish-task FAILED
-fi

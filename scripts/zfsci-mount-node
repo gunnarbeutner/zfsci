@@ -1,0 +1,19 @@
+#!/bin/sh
+if ! cd `dirname $0`; then
+	echo "Could not cd to scripts directory."
+	exit 1
+fi
+
+. ./zfsci.conf
+
+ROOTPART=${INSTALLDEV}1
+
+if mount -o remount,rw /mnt >/dev/null 2>&1; then
+	exit 0
+fi
+
+if ! mount $ROOTPART /mnt; then
+	exit 1
+fi
+
+exit 0

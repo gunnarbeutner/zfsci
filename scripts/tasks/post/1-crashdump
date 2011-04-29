@@ -1,6 +1,0 @@
-#!/bin/sh
-ls -l /boot > $RESULTDIR/ls-boot
-find /var/crash/[0-9]* -type f -print0 | \
-	xargs -0 --replace=X cp X $RESULTDIR
-
-zfsci-finish-task PASSED

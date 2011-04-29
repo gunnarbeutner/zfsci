@@ -1,0 +1,17 @@
+#!/bin/sh
+if ! cd `dirname $0`; then
+	echo "Could not cd to scripts directory."
+	exit 1
+fi
+
+. ./zfsci.conf
+
+if ! ./zfsci-mount-node; then
+	echo "Node root fs could not be mounted."
+	exit 1
+fi
+
+# boot the new system
+ROOTPART=${INSTALLDEV}1
+kexec --command-line="root=$ROOTPART ro crashkernel=128M" \
+	--initrd=/mnt/initrd.img /mnt/vmlinuz

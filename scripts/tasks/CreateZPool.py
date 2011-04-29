@@ -1,0 +1,22 @@
+import os
+from tasklib import Task
+
+class CreateZPoolTask(Task):
+	description = "Create zpool"
+	stage = "test"
+
+	dependencies = ['zfs']
+	provides = ['filesystem']
+
+	def run(self):
+		fs_type = Dispatcher.get_input('fs_type')
+
+		if fs_type != 'zfs' and fs_type != 'zfs-fuse':
+			return Task.SKIPPED
+
+		if os.system("zpool create -f tank /dev/sda3") != 0:
+			return Task.FAILED
+
+		return Task.PASSED
+
+CreateZPoolTask.register()

@@ -18,7 +18,7 @@ SWAPPART=${INSTALLDEV}2
 POOLPART=${INSTALLDEV}3
 
 # make sure old partitions aren't mounted anymore
-umount /mnt/dev /mnt/sys /mnt/proc /mnt
+./zfsci-unmount-node
 
 # destroy old partition table
 dd if=/dev/zero of=$INSTALLDEV bs=512 count=1
@@ -34,8 +34,8 @@ mke2fs -j -m 0 -L / -I 128 $ROOTPART
 mkswap $SWAPPART
 
 # try and mount the / file system
-if ! mount $ROOTPART /mnt; then
-	echo "Couldn't mount root fs."
+if ! ./zfsci-mount-node; then
+	echo "Node root FS could not be mounted."
 	exit 1
 fi
 
@@ -82,8 +82,8 @@ mount --bind /sys /mnt/sys
 mount -t proc none /mnt/proc
 chroot /mnt aptitude update
 
-# install ntpdate
-chroot /mnt aptitude install -y ntpdate
+# make sure python is installed
+chroot /mnt aptitude install -y python
 
 # install kdump
 # interestingly kdump-tools uses 'file' but doesn't have a
@@ -115,26 +115,12 @@ cat >> /mnt/etc/default/kexec <<KEXEC
 LOAD_KEXEC=false
 KEXEC
 
-# copy zfsci scripts
-cp -a /opt/zfsci /mnt/opt
-
-# set testid
-mkdir -p /mnt/var/lib/zfsci
-echo `date +%s` > /mnt/var/lib/zfsci/testid
-
-# run build tasks
-chroot /mnt /opt/zfsci/zfsci-run-stage build
-
 # install test launcher
 cat > /mnt/etc/rc.local <<RCLOCAL
-/opt/zfsci/zfsci-run-stage test
+#!/bin/sh
+[ -e /.zfsci ] && /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks test /opt/zfsci/job.json
 reboot
 exit 0
 RCLOCAL
 
-# boot the new system
-mount -o remount,ro /mnt
-KERNEL=`find /mnt/boot -name vmlinuz\* -type f`
-INITRD=`find /mnt/boot -name initrd\* -type f`
-kexec --command-line="root=$ROOTPART ro crashkernel=128M" \
-	--initrd=$INITRD $KERNEL
+exit 0

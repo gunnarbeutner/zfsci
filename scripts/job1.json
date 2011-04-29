@@ -1,0 +1,7 @@
+{
+	"job_id": "1",
+
+	"input": {
+		"fs_type": "ext4"
+	}
+}

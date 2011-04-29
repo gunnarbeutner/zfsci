@@ -1,0 +1,21 @@
+#!/bin/sh
+if [ -z "$1" ]; then
+	echo "Syntax: $0 <timeout>"
+	echo "Causes a kernel panic in <timeout> seconds unless"
+	echo "the timer is re-armed by resetting the timeout."
+
+	exit 1
+fi
+
+TIMEOUT=$1
+
+PIDFILE=/var/run/zfsci-watchdog.pid
+
+if [ -f $PIDFILE ]; then
+	kill -KILL `cat $PIDFILE`
+fi
+
+(exec sh -c "echo \$\$ > $PIDFILE; sleep $TIMEOUT; echo c > /proc/sysrq-trigger" &)
+
+echo "Watchdog has been (re-)armed."
+exit 0
