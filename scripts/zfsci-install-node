@@ -53,9 +53,12 @@ echo $NODE_HOSTNAME > /mnt/etc/hostname
 
 # set up fstab
 cat > /mnt/etc/fstab <<FSTAB
-$ROOTPART	/	ext3	defaults	0	0
-$SWAPPART	none	swap	sw		0	0
+$ROOTPART		/			ext3	defaults	0	0
+$SWAPPART		none			swap	sw		0	0
+$NFS_PERSISTENT_PATH	/var/lib/zfsci-data	nfs	ro		0	0
 FSTAB
+
+mkdir -p /mnt/var/lib/zfsci-data
 
 # set up networking
 cat > /mnt/etc/network/interfaces <<INTERFACES
@@ -72,8 +75,7 @@ grep -v ^root /mnt/etc/shadow > /mnt/etc/.shadow &&
 	cat /mnt/etc/.shadow > /mnt/etc/shadow &&
 	rm -f /mnt/etc/.shadow
 
-# disable syslog and cron
-chroot /mnt update-rc.d -f rsyslog remove
+# disable cron
 chroot /mnt update-rc.d -f cron remove
 
 # update package lists
@@ -84,6 +86,9 @@ chroot /mnt aptitude update
 
 # make sure python is installed
 chroot /mnt aptitude install -y python
+
+# install NFS client
+chroot /mnt aptitude install -y nfs-client
 
 # install kdump
 # interestingly kdump-tools uses 'file' but doesn't have a

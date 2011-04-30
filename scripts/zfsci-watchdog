@@ -12,17 +12,18 @@ TIMEOUT=$1
 PIDFILE=/var/run/zfsci-watchdog.pid
 
 if [ -f $PIDFILE ]; then
-	kill -KILL `cat $PIDFILE`
+	kill -KILL -`cat $PIDFILE`
 fi
 
 if [ $TIMEOUT -gt 0 ]; then
-	(exec sh -c "echo \$\$ > $PIDFILE; sleep $TIMEOUT; echo c > /proc/sysrq-trigger" &)
+	(exec setsid sh -c "echo \$\$ > $PIDFILE; sleep $TIMEOUT; echo c > /proc/sysrq-trigger" &)
 
 	# TODO: find a more reliable way of checking that the sub-shell has written its pid file.
 	sleep 1
 
 	echo "Watchdog has been (re-)armed: $TIMEOUT seconds"
 else
+	rm -f $PIDFILE
 	echo "Watchdog has been disabled."
 fi
 

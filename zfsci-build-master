@@ -24,6 +24,14 @@ rm -Rf build
 mkdir -p build/nfsroot build/tftpboot
 zfsci_echo "DONE"
 
+# disable init scripts in the build environment
+mkdir -p build/nfsroot/usr/sbin
+cat > build/nfsroot/usr/sbin/policy-rc.d <<POLICYRCD
+#!/bin/sh
+exit 101
+POLICYRCD
+chmod +x build/nfsroot/usr/sbin/policy-rc.d
+
 zfsci_echo -n "Building NFS root filesystem... "
 if ! debootstrap squeeze build/nfsroot $DEBIAN_MIRROR; then
 	zfsci_echo "FAILED"
@@ -39,7 +47,7 @@ default linux
 
 label linux
 	kernel $TFTP_PATH/kernel
-	append root=/dev/nfs initrd=$TFTP_PATH/initrd netboot=nfs ro nfsroot=$NFS_PATH,v3,udp ip=dhcp panic=300 vga=0x317 nomodeset noplymouth
+	append root=/dev/nfs initrd=$TFTP_PATH/initrd netboot=nfs ro nfsroot=$NFS_ROOT_PATH,v3,udp ip=dhcp panic=300 vga=0x317 nomodeset noplymouth aufs=tmpfs
 PXELINUX
 
 zfsci_echo -n "Copying kernel and modules... "
@@ -78,6 +86,11 @@ MODULES=netboot
 BOOT=nfs
 NFSCONFIG
 
+echo aufs >> build/initramfs-tools/modules
+
+cp misc/rootaufs build/initramfs-tools/scripts/init-bottom/__rootaufs
+chmod +x build/initramfs-tools/scripts/init-bottom/__rootaufs
+
 if ! mkinitramfs -d build/initramfs-tools -o build/tftpboot/initrd.img-$KERNELVER $KERNELVER; then
 	zfsci_echo "FAILED"
 	zfsci_echo "Error: mkinitramfs failed."
@@ -89,8 +102,7 @@ ln -s initrd.img-$KERNELVER build/tftpboot/initrd
 zfsci_echo "DONE"
 
 # disable syslog and cron
-zfsci_echo -n "Disabling syslog and cron... "
-chroot build/nfsroot update-rc.d -f rsyslog remove
+zfsci_echo -n "Disabling cron... "
 chroot build/nfsroot update-rc.d -f cron remove
 zfsci_echo "DONE"
 
@@ -109,7 +121,7 @@ zfsci_echo "DONE"
 
 zfsci_echo -n "Installing utilities... "
 chroot build/nfsroot aptitude install -y kexec-tools debootstrap \
-	parted hdparm ntpdate
+	parted hdparm ntpdate nfs-client aufs-tools
 zfsci_echo "DONE"
 
 zfsci_echo -n "Setting up network... "
@@ -130,6 +142,24 @@ HOSTS
 
 zfsci_echo "DONE"
 
+zfsci_echo -n "Setting up fstab..."
+cat > build/nfsroot/etc/fstab <<FSTAB
+$NFS_PERSISTENT_PATH	/var/lib/zfsci-data	nfs	defaults	0	0
+FSTAB
+
+# http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=434570
+cat >> build/nfsroot/etc/default/rcS <<RCSCONFIG
+ASYNCMOUNTNFS=no
+RCSCONFIG
+
+mkdir -p build/nfsroot/var/lib/zfsci-data
+zfsci_echo "DONE"
+
+zfsci_echo -n "Fixing file-system for read-only NFS root..."
+rm -f build/nfsroot/etc/udev/rules.d/*persistent*
+ln -sf /proc/mounts build/nfsroot/etc/mtab
+zfsci_echo "DONE"
+
 zfsci_echo -n "Setting up zfsci scripts... "
 cat > build/nfsroot/etc/rc.local <<RCLOCAL
 #!/bin/sh
@@ -141,6 +171,9 @@ RCLOCAL
 cp -a scripts build/nfsroot/opt/zfsci
 cp zfsci.conf build/nfsroot/opt/zfsci
 zfsci_echo "DONE"
+
+# re-enable init scripts
+rm -f build/nfsroot/usr/sbin/policy-rc.d
 
 zfsci_echo "Build completed."
 exit 0
