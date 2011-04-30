@@ -169,7 +169,8 @@ exit 0
 RCLOCAL
 
 cp -a scripts build/nfsroot/opt/zfsci
-cp zfsci.conf build/nfsroot/opt/zfsci
+cp -a tasks build/nfsroot/opt/zfsci/
+cp zfsci.conf build/nfsroot/opt/zfsci/
 zfsci_echo "DONE"
 
 # re-enable init scripts
