@@ -124,7 +124,10 @@ KEXEC
 cat > /mnt/etc/rc.local <<RCLOCAL
 #!/bin/sh
 [ -e /.zfsci ] && /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks test /opt/zfsci/job.json
+
+/opt/zfsci/zfsci-watchdog 120
 reboot
+
 exit 0
 RCLOCAL
 
