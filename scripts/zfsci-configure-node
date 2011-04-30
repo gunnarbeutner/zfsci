@@ -26,6 +26,7 @@ fi
 
 # mark the tests as 'in progress'
 touch /mnt/.zfsci
+mkdir -p /mnt/opt/zfsci/result_files
 
 # copy zfsci scripts
 rm -Rf /mnt/opt/zfsci
