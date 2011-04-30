@@ -172,7 +172,7 @@ class Dispatcher(object):
 
 	@staticmethod
 	def get_result_dir():
-		return "/opt/zfsci/output_files/"
+		return "/opt/zfsci/result_files/"
 
 	@staticmethod
 	def rearm_watchdog(timeout):
