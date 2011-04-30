@@ -9,7 +9,7 @@ class BuildSPLTask(Task):
 	provides = ['spl']
 
 	def prepare(self):
-		if Dispatcher.get_input('fs_type') != 'zfs':
+		if Dispatcher.get_input('fs-type') != 'zfs':
 			return Task.SKIPPED
 
 		try:
@@ -21,10 +21,16 @@ class BuildSPLTask(Task):
 		os.system("rm -Rf /root/build/spl")
 
 	def run(self):
-		if os.system("git clone git://github.com/behlendorf/spl.git spl") != 0:
+		(repository, branch, commit) = Dispatcher.get_input('spl-gitinfo').split(' ', 2)
+
+		repodir = "%s/%s" % (Dispatcher.get_persistent_dir(), repository)
+		if os.system("git clone %s spl" % (repodir) != 0:
 			return Task.FAILED
 
 		os.chdir("spl")
+
+		if os.system("git revert --hard %s" % (commit)) != 0:
+			return Task.FAILED
 
 		if os.system("./configure --prefix=/usr") != 0:
 			return Task.FAILED

@@ -20,7 +20,8 @@ zfsci_echo() {
 
 # re-create build directory
 zfsci_echo -n "Creating build directory... "
-rm -Rf build
+mkdir -p build
+rm -Rf build/nfsroot build/tftpboot
 mkdir -p build/nfsroot build/tftpboot
 zfsci_echo "DONE"
 
@@ -101,11 +102,6 @@ ln -s initrd.img-$KERNELVER build/tftpboot/initrd
 
 zfsci_echo "DONE"
 
-# disable syslog and cron
-zfsci_echo -n "Disabling cron... "
-chroot build/nfsroot update-rc.d -f cron remove
-zfsci_echo "DONE"
-
 # set root password (if you want to log in on the zfsci nodes you'll have to
 # set a root password for the build box or figure out a better way for this)
 zfsci_echo -n "Setting root password... "
@@ -121,7 +117,7 @@ zfsci_echo "DONE"
 
 zfsci_echo -n "Installing utilities... "
 chroot build/nfsroot aptitude install -y kexec-tools debootstrap \
-	parted hdparm ntpdate nfs-client aufs-tools
+	parted hdparm ntpdate nfs-client aufs-tools flock
 zfsci_echo "DONE"
 
 zfsci_echo -n "Setting up network... "
@@ -165,6 +161,13 @@ cat > build/nfsroot/etc/rc.local <<RCLOCAL
 #!/bin/sh
 ntpdate pool.ntp.org >/dev/null 2>&1 &
 /opt/zfsci/zfsci-extract-result
+/opt/zfsci/zfsci-install-node DESTROY
+/opt/zfsci/zfsci-pick-job
+
+cat >> /etc/crontab <<CRONTAB
+*/5	*	*	*	*	root	flock -x /tmp/zfs-pick-job-lock /opt/zfsci/zfsci-pick-job
+CRONTAB
+
 exit 0
 RCLOCAL
 

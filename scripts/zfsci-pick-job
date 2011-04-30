@@ -1,0 +1,26 @@
+#!/bin/sh
+echo "Picking job for node..."
+mkdir -p /tmp/zfsci-job
+
+for file in /var/lib/zfsci-data/jobs/*; do
+	if ! mv $file /tmp/zfsci-job/; then
+		continue
+	fi
+
+	JOB=`basename $file`
+
+	echo "Picked job: $JOB"
+
+	if ! /opt/zfsci/zfsci-configure-node /tmp/zfsci-job/$JOB; then
+		exit 1
+	fi
+
+	if ! /opt/zfsci/zfsci-boot-node; then
+		exit 1
+	fi
+
+	exit 0
+done
+
+echo "No jobs found."
+exit 1

@@ -9,7 +9,7 @@ class CreateZPoolTask(Task):
 	provides = ['filesystem']
 
 	def run(self):
-		fs_type = Dispatcher.get_input('fs_type')
+		fs_type = Dispatcher.get_input('fs-type')
 
 		if fs_type != 'zfs' and fs_type != 'zfs-fuse':
 			return Task.SKIPPED

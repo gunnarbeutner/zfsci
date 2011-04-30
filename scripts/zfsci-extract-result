@@ -25,7 +25,7 @@ chroot /mnt /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks post /opt/zfsci/job.json
 
 # copy results
 TESTID=`date +%s`
-RESULTDIR=/var/lib/zfsci/result-$TESTID
+RESULTDIR=/var/lib/zfsci-data/results/result-$TESTID
 mkdir -p $RESULTDIR
 cp -a /mnt/opt/zfsci/result_files/* $RESULTDIR
 cp /mnt/opt/zfsci/job.json $RESULTDIR

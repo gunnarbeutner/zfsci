@@ -1,15 +1,15 @@
 import os
-from tasklib import Task
+from tasklib import Task, Dispatcher
 
 class BuildZFSTask(Task):
-	description = "ZFS build"
+	description = "Build ZFS"
 	stage = "test"
 
 	dependencies = ['zfs-builddeps', 'spl']
 	provides = ['zfs']
 
 	def prepare(self):
-		if Dispatcher.get_input('fs_type') != 'zfs':
+		if Dispatcher.get_input('fs-type') != 'zfs':
 			return Task.SKIPPED
 
 		try:
@@ -21,10 +21,16 @@ class BuildZFSTask(Task):
 		os.system("rm -Rf /root/build/zfs")
 
 	def run(self):
-		if os.system("git clone git://github.com/behlendorf/zfs.git zfs") != 0:
+		(repository, branch, commit) = Dispatcher.get_input('zfs-gitinfo').split(' ', 2)
+
+		repodir = "%s/%s" % (Dispatcher.get_persistent_dir(), repository)
+		if os.system("git clone %s zfs" % (repodir) != 0:
 			return Task.FAILED
 
 		os.chdir("zfs")
+
+		if os.system("git revert --hard %s" % (commit)) != 0:
+			return Task.FAILED
 
 		if os.system("./configure --prefix=/usr") != 0:
 			return Task.FAILED

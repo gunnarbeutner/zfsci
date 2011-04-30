@@ -11,6 +11,7 @@ class Task(object):
 	provides = []
 
 	PENDING = 'PENDING'
+	RUNNING = 'RUNNING'
 	SKIPPED = 'SKIPPED'
 	FAILED = 'FAILED'
 	DEPENDENCY_ERROR = 'DEPENDENCY_ERROR'
@@ -38,6 +39,8 @@ class Task(object):
 		if not self.dependencies_resolved:
 			self.set_output('status', Task.DEPENDENCY_ERROR)
 			return
+
+		self.set_output('status', Task.RUNNING)
 
 		try:
 			status = self.prepare()
@@ -173,6 +176,10 @@ class Dispatcher(object):
 	@staticmethod
 	def get_result_dir():
 		return "/opt/zfsci/result_files/"
+
+	@staticmethod
+	def get_persistent_dir():
+		return "/var/lib/zfsci-data/"
 
 	@staticmethod
 	def rearm_watchdog(timeout):

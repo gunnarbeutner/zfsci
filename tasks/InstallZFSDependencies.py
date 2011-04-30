@@ -7,7 +7,7 @@ class InstallZFSDependenciesTask(Task):
 	provides = ['zfs-builddeps']
 
 	def run(self):
-		if Dispatcher.get_input('fs_type') != 'zfs':
+		if Dispatcher.get_input('fs-type') != 'zfs':
 			return Task.SKIPPED
 
 		if os.system("aptitude install -y module-assistant uuid-dev zlib1g-dev") != 0:

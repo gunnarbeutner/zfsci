@@ -8,7 +8,7 @@ class CreateExtFSTask(Task):
 	provides = ['filesystem']
 
 	def run(self):
-		fs_type = Dispatcher.get_input('fs_type')
+		fs_type = Dispatcher.get_input('fs-type')
 
 		if not fs_type in ['ext2', 'ext3', 'ext4']:
 			return Task.SKIPPED

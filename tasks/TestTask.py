@@ -7,7 +7,7 @@ class TestTask(Task):
 	def run(self):
 		print "TestTask:run"
 
-		print "fs_type prop: %s" % (Dispatcher.get_input('fs_type'))
+		print "fs_type prop: %s" % (Dispatcher.get_input('fs-type'))
 
 		return Task.PASSED
 
