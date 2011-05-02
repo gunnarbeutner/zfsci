@@ -48,7 +48,7 @@ default linux
 
 label linux
 	kernel $TFTP_PATH/kernel
-	append root=/dev/nfs initrd=$TFTP_PATH/initrd netboot=nfs ro nfsroot=$NFS_ROOT_PATH,v3,udp ip=dhcp panic=300 vga=0x317 nomodeset noplymouth aufs=tmpfs
+	append root=/dev/nfs initrd=$TFTP_PATH/initrd netboot=nfs ro nfsroot=$NFS_ROOT_PATH,v3,udp ip=dhcp panic=300 aufs=tmpfs
 PXELINUX
 
 zfsci_echo -n "Copying kernel and modules... "

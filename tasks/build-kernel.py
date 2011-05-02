@@ -21,9 +21,6 @@ class BuildKernelTask(Task):
 		if os.system("make allyesconfig") != 0:
 			return Task.FAILED
 
-		if os.system("make -j 4") != 0:
-			return Task.FAILED
-
 		return Task.PASSED
 
 	def run(self):

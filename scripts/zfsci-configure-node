@@ -35,6 +35,10 @@ cp -a /opt/zfsci /mnt/opt
 # copy test config
 cp $CONFIG /mnt/opt/zfsci/job.json
 
+# mount persistent dir
+mkdir -p /mnt/var/lib/zfsci-data
+mount --bind /var/lib/zfsci-data /mnt/var/lib/zfsci-data
+
 # run build tasks
 chroot /mnt /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks build /opt/zfsci/job.json
 

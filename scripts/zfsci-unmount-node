@@ -6,5 +6,5 @@ fi
 
 . ./zfsci.conf
 
-umount /mnt/dev /mnt/sys /mnt/proc /mnt >/dev/null 2>&1
+umount /mnt/var/lib/zfsci-data /mnt/dev /mnt/sys /mnt/proc /mnt >/dev/null 2>&1
 exit 0

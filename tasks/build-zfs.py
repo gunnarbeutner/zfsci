@@ -18,18 +18,19 @@ class BuildZFSTask(Task):
 			pass
 
 		os.chdir("/root/build")
-		os.system("rm -Rf /root/build/zfs")
+		os.system("rm -Rf /root/build/spl")
 
 	def run(self):
-		(repository, branch, commit) = Dispatcher.get_input('zfs-gitinfo').split(' ', 2)
+		gitrepo = Dispatcher.get_input('zfs-git-repo')
+		gitcommit = Dispatcher.get_input('zfs-git-commit')
 
-		repodir = "%s/%s" % (Dispatcher.get_persistent_dir(), repository)
-		if os.system("git clone %s zfs" % (repodir) != 0:
+		repodir = "%s/repositories/%s" % (Dispatcher.get_persistent_dir(), gitrepo['zfs'])
+		if os.system("git clone %s zfs" % (repodir)) != 0:
 			return Task.FAILED
 
 		os.chdir("zfs")
 
-		if os.system("git revert --hard %s" % (commit)) != 0:
+		if os.system("git reset --hard `git rev-list --max-count=1 --before=%s %s`" % (gitcommit, gitrepo['branch'])) != 0:
 			return Task.FAILED
 
 		if os.system("./configure --prefix=/usr") != 0:

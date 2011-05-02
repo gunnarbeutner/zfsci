@@ -20,6 +20,10 @@ fi
 # mark the tests as 'finished'
 rm -f /mnt/.zfsci
 
+# mount persistent dir
+mkdir -p /mnt/var/lib/zfsci-data
+mount --bind /var/lib/zfsci-data /mnt/var/lib/zfsci-data
+
 # run post tasks
 chroot /mnt /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks post /opt/zfsci/job.json
 

@@ -1,4 +1,6 @@
 #!/bin/sh
+[ -e /tmp/zfsci-picked-job ] && exit 0
+
 echo "Picking job for node..."
 mkdir -p /tmp/zfsci-job
 
@@ -6,6 +8,8 @@ for file in /var/lib/zfsci-data/jobs/*; do
 	if ! mv $file /tmp/zfsci-job/; then
 		continue
 	fi
+
+	touch /tmp/zfsci-picked-job
 
 	JOB=`basename $file`
 
