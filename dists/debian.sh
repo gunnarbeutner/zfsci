@@ -4,8 +4,6 @@ if ! cd `dirname $0`; then
 	exit 1
 fi
 
-. ../zfsci.conf
-
 if [ -z "$1" ]; then
 	echo "Syntax: $0 <target-file>"
 	exit 1
@@ -27,7 +25,7 @@ POLICYRCD
 chmod +x $BUILDDIR/usr/sbin/policy-rc.d
 
 # install base system
-if ! debootstrap squeeze $BUILDDIR $DEBIAN_MIRROR; then
+if ! debootstrap squeeze $BUILDDIR; then
 	echo "debootstrap failed"
 	exit 1
 fi

@@ -1,11 +1,12 @@
-from tasklib import Task
+from tasklib import Task, Utility
 
 class DistributionAttribute(Attribute):
 	name = "distribution"
 	description = "Linux distribution"
 
 	def get_values(self):
-		distsbasepath = '/var/lib/zfsci-data/dists'
+		config = Utility.get_zfsci_config()
+		distsbasepath = config['persistent_path'] + '/dists'
 
 		if not os.path.isdir(distsbasepath):
 			try:

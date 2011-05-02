@@ -1,5 +1,5 @@
 import os
-from tasklib import Task
+from tasklib import Task, Utility
 
 class ZFSGitRepoAttribute(Attribute):
 	name = "zfs-git-repo"
@@ -20,7 +20,8 @@ class ZFSGitRepoAttribute(Attribute):
 			}
 		]
 
-		repobasepath = '/var/lib/zfsci-data/repositories'
+		config = Utility.get_zfsci_config()
+		repobasepath = config['persistent_path'] + '/repositories'
 
 		if not os.path.isdir(repobasepath):
 			try:

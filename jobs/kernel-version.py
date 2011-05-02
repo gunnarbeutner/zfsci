@@ -1,11 +1,12 @@
-from tasklib import Task
+from tasklib import Task, Utility
 
 class KernelVersionAttribute(Attribute):
 	name = "kernel-version"
 	description = "Linux kernel version"
 
 	def get_values(self):
-		kernelbasepath = '/var/lib/zfsci-data/kernels'
+		config = Utility.get_zfsci_config()
+		kernelbasepath = config['persistent_path'] + '/kernels'
 
 		if not os.path.isdir(kernelbasepath):
 			try:

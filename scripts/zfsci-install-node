@@ -3,7 +3,7 @@ import sys
 import os
 from tasklib import Utility, JobConfig
 
-scriptsdir = os.path.dirname(os.path.realpath( __file__ ))
+scriptsdir = os.path.dirname(os.path.realpath(__file__))
 os.chdir(scriptsdir)
 
 if len(sys.argv) < 2:

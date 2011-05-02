@@ -3,19 +3,14 @@ import sys
 import os
 import glob
 import json
+
+sourcedir = os.path.dirname(os.path.realpath(__file__))
+os.chdir(sourcedir)
+
+sys.path.append('scripts/')
 from tasklib import Attribute
 
-if len(sys.argv) < 2:
-	print 'Syntax: %s <jobs-dir>' % (sys.argv[0])
-	sys.exit(1)
-
-jobsdir = sys.argv[1]
-
-if not os.path.isdir(jobsdir):
-	print 'Jobs dir "%s" does not exist.' % (jobsdir)
-	sys.exit(1)
-
-for taskfile in glob.glob('%s/*.py' % (jobsdir)):
+for taskfile in glob.glob('jobs/*.py'):
 	execfile(taskfile)
 
 try:

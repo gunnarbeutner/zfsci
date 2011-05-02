@@ -34,7 +34,7 @@ POLICYRCD
 chmod +x build/nfsroot/usr/sbin/policy-rc.d
 
 zfsci_echo -n "Building NFS root filesystem... "
-if ! debootstrap squeeze build/nfsroot $DEBIAN_MIRROR; then
+if ! debootstrap squeeze build/nfsroot; then
 	zfsci_echo "FAILED"
 	zfsci_echo "Error: debootstrap failed."
 	exit 1
