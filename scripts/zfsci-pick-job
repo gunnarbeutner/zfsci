@@ -5,6 +5,10 @@ echo "Picking job for node..."
 mkdir -p /tmp/zfsci-job
 
 for file in /var/lib/zfsci-data/jobs/*; do
+	if [ ! -e $file ]; then
+		continue
+	fi
+
 	if ! mv $file /tmp/zfsci-job/; then
 		continue
 	fi
@@ -14,6 +18,10 @@ for file in /var/lib/zfsci-data/jobs/*; do
 	JOB=`basename $file`
 
 	echo "Picked job: $JOB"
+
+	if ! /opt/zfsci/zfsci-install-node /tmp/zfsci-job/$JOB; then
+		exit 1
+	fi
 
 	if ! /opt/zfsci/zfsci-configure-node /tmp/zfsci-job/$JOB; then
 		exit 1

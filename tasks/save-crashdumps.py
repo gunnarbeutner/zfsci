@@ -1,6 +1,6 @@
 import glob
 import shutil
-from tasklib import Task, Dispatcher
+from tasklib import Task, Utility
 
 class SaveCrashDumpsTask(Task):
 	description = "Save kernel crash dumps"
@@ -8,7 +8,7 @@ class SaveCrashDumpsTask(Task):
 
 	def run(self):
 		for file in glob.glob("/var/crash/[0-9]*/*"):
-			shutil.copy(file, Dispatcher.get_result_dir())
+			shutil.copy(file, Utility.get_result_dir())
 
 		return Task.PASSED
 

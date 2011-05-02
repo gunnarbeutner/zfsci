@@ -1,5 +1,5 @@
 import os
-from tasklib import Task
+from tasklib import Task, JobConfig
 
 class CreateZPoolTask(Task):
 	description = "Create zpool"
@@ -9,7 +9,7 @@ class CreateZPoolTask(Task):
 	provides = ['filesystem']
 
 	def run(self):
-		fs_type = Dispatcher.get_input('fs-type')
+		fs_type = JobConfig.get_input('fs-type')
 
 		if fs_type != 'zfs' and fs_type != 'zfs-fuse':
 			return Task.SKIPPED

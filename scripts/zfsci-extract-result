@@ -4,8 +4,6 @@ if ! cd `dirname $0`; then
 	exit 1
 fi
 
-. ./zfsci.conf
-
 # try and mount the / file system
 if ! ./zfsci-mount-node; then
 	echo "Node root FS could not be mounted."
@@ -25,13 +23,12 @@ mkdir -p /mnt/var/lib/zfsci-data
 mount --bind /var/lib/zfsci-data /mnt/var/lib/zfsci-data
 
 # run post tasks
-chroot /mnt /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks post /opt/zfsci/job.json
+chroot /mnt /opt/zfsci/zfsci-run-stage /var/lib/zfsci-data/tasks post /var/lib/zfsci/job.json
 
 # copy results
 TESTID=`date +%s`
 RESULTDIR=/var/lib/zfsci-data/results/result-$TESTID
 mkdir -p $RESULTDIR
-cp -a /mnt/opt/zfsci/result_files/* $RESULTDIR
-cp /mnt/opt/zfsci/job.json $RESULTDIR
+cp -a /mnt/var/lib/zfsci/* $RESULTDIR
 
 exit 0

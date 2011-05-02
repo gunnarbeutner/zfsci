@@ -1,5 +1,5 @@
 import os
-from tasklib import Task
+from tasklib import Task, JobConfig
 
 class CreateExtFSTask(Task):
 	description = "Create ext FS"
@@ -8,7 +8,7 @@ class CreateExtFSTask(Task):
 	provides = ['filesystem']
 
 	def run(self):
-		fs_type = Dispatcher.get_input('fs-type')
+		fs_type = JobConfig.get_input('fs-type')
 
 		if not fs_type in ['ext2', 'ext3', 'ext4']:
 			return Task.SKIPPED

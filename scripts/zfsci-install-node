@@ -1,134 +1,107 @@
-#!/bin/sh
-if ! cd `dirname $0`; then
-	echo "Could not cd to scripts directory."
-	exit 1
-fi
+#!/usr/bin/env python
+import sys
+import os
+from tasklib import Utility, JobConfig
 
-. ./zfsci.conf
+scriptsdir = os.path.dirname(os.path.realpath( __file__ ))
+os.chdir(scriptsdir)
 
-if [ "$1" != "DESTROY" ]; then
-	echo "Syntax: $0 DESTROY"
-	echo "Installs a zfsci node. All data on the configured" \
-		"device is destroyed in the process."
-	exit 1
-fi
+if len(sys.argv) < 2:
+	print "Syntax: %s <configfile>" % (sys.argv[0])
+	sys.exit(1)
 
-ROOTPART=${INSTALLDEV}1
-SWAPPART=${INSTALLDEV}2
-POOLPART=${INSTALLDEV}3
+configfile = sys.argv[1]
 
-# make sure old partitions aren't mounted anymore
-./zfsci-unmount-node
+if not os.path.isfile(configfile):
+	print 'Config file "%s" does not exist.' % (configfile)
+	sys.exit(1)
 
-# destroy old partition table
-dd if=/dev/zero of=$INSTALLDEV bs=512 count=1
+JobConfig.load(configfile)
 
-# create new partitions
-parted --script -- $INSTALLDEV mktable msdos
-parted --script -- $INSTALLDEV mkpart primary ext2 1M 10G
-parted --script -- $INSTALLDEV mkpart primary linux-swap 10G 14G
-parted --script -- $INSTALLDEV mkpart primary sun-ufs 14G -1s
+if os.system("./zfsci-unmount-node") != 0:
+	print "zfsci-unmount-node failed."
+	sys.exit(1)
 
-# create / file system and swap
-mke2fs -j -m 0 -L / -I 128 $ROOTPART
-mkswap $SWAPPART
+config = Utility.get_zfsci_config()
 
-# try and mount the / file system
-if ! ./zfsci-mount-node; then
-	echo "Node root FS could not be mounted."
-	exit 1
-fi
+install_device = config['install_device']
 
-# mark the tests as 'in progress'
-touch /mnt/.zfsci
+rootpart = install_device + '1'
+JobConfig.set_input('rootpart', rootpart)
 
-# install base system
-if ! debootstrap squeeze /mnt  $DEBIAN_MIRROR; then
-	echo "debootstrap failed."
-	exit 1
-fi
+swappart = install_device + '2'
+JobConfig.set_input('swappart', swappart)
 
-# set hostname
-echo $NODE_HOSTNAME > /mnt/etc/hostname
+testpart = install_device + '3'
+JobConfig.set_input('testpart', testpart)
 
-# set up fstab
-cat > /mnt/etc/fstab <<FSTAB
-$ROOTPART		/			ext3	defaults	0	0
-$SWAPPART		none			swap	sw		0	0
-$NFS_PERSISTENT_PATH	/var/lib/zfsci-data	nfs	ro		0	0
-FSTAB
+JobConfig.save()
 
-mkdir -p /mnt/var/lib/zfsci-data
+if os.system("dd if=/dev/zero of=%s bs=512 count=1" % (install_device)) != 0:
+	print "Could not erase old partition table."
+	sys.exit(1)
 
-# set up networking
-cat > /mnt/etc/network/interfaces <<INTERFACES
-auto lo
-iface lo inet loopback
+if os.system("parted --script -- %s mktable msdos" % (install_device)) != 0:
+	print "Could not create new partition table."
+	sys.exit(1)
 
-auto eth0
-iface eth0 inet dhcp
-INTERFACES
+if os.system("parted --script -- %s mkpart primary ext2 1M 10G" % (install_device)) != 0:
+	print "Could not create new / partition."
+	sys.exit(1)
 
-# set root password
-grep -v ^root /mnt/etc/shadow > /mnt/etc/.shadow &&
-	grep ^root /etc/shadow >> /mnt/etc/.shadow &&
-	cat /mnt/etc/.shadow > /mnt/etc/shadow &&
-	rm -f /mnt/etc/.shadow
+if os.system("parted --script -- %s mkpart primary linux-swap 10G 14G" % (install_device)) != 0:
+	print "Could not create new swap partition."
+	sys.exit(1)
 
-# disable cron
-chroot /mnt update-rc.d -f cron remove
+if os.system("parted --script -- %s mkpart primary sun-ufs 14G -1s" % (install_device)) != 0:
+	print "Could not create new test partition."
+	sys.exit(1)
 
-# update package lists
-mount --bind /dev /mnt/dev
-mount --bind /sys /mnt/sys
-mount -t proc none /mnt/proc
-chroot /mnt aptitude update
+if os.system("mke2fs -j -m 0 -L / -I 128 %s" % (rootpart)) != 0:
+	print "Create not create new / filesystem."
+	sys.exit(1)
 
-# make sure python is installed
-chroot /mnt aptitude install -y python
+if os.system("mkswap %s" % (swappart)) != 0:
+	print "Could not create new swap filesystem."
+	sys.exit(1)
 
-# install NFS client
-chroot /mnt aptitude install -y nfs-client
+if os.system("./zfsci-mount-node") != 0:
+	print "Could not mount node filesystem."
+	sys.exit(1)
 
-# install kdump
-# interestingly kdump-tools uses 'file' but doesn't have a
-# package dependency for it
-chroot /mnt aptitude install -y kdump-tools file initramfs-tools
+distimage = '/var/lib/zfsci-data/dists/%s.tar.gz' % (JobConfig.get_input('distribution'))
 
-# build initrd for the crash kernel and move files
-# to /crashkernel
-CRASHKERNEL="vmlinuz-`uname -r`"
-CRASHINITRD="initrd.img-`uname -r`"
-cp /boot/$CRASHKERNEL /mnt/boot
-cp -a /lib/modules/`uname -r` /mnt/lib/modules
-chroot /mnt update-initramfs -c -k `uname -r`
-mkdir -p /mnt/crashkernel
-mv /mnt/boot/$CRASHKERNEL /mnt/boot/$CRASHINITRD /mnt/crashkernel
+if os.system("tar Cxfzv /mnt %s" % (distimage)) != 0:
+	print "Could not extract distribution image."
+	sys.exit(1)
 
-mkdir -p /mnt/var/crash
+# mark tests as 'in progress'
+open("/mnt/.zfsci", "w").close()
 
-cat >> /mnt/etc/default/kdump-tools <<KDUMP
-USE_KDUMP=1
-KDUMP_SYSCTL="kernel.panic_on_oops=1"
-MAKEDUMP_ARGS="-c -d 31"
+fp = open("/mnt/etc/hostname", "w")
+fp.write("zfsci-node")
+fp.close()
 
-KDUMP_KERNEL="/crashkernel/$CRASHKERNEL"
-KDUMP_INITRD="/crashkernel/$CRASHINITRD"
-KDUMP
+fp = open("/mnt/etc/fstab", "w")
+fp.write("""%s	/			ext3	defaults	0	0
+%s	none			swap	sw		0	0
+%s	/var/lib/zfsci-data	nfs	ro		0	0
+""" % \
+(rootpart, swappart, config['nfs_persistent_path']))
+fp.close()
 
-cat >> /mnt/etc/default/kexec <<KEXEC
-LOAD_KEXEC=false
-KEXEC
+os.makedirs("/mnt/var/lib/zfsci-data")
 
-# install test launcher
-cat > /mnt/etc/rc.local <<RCLOCAL
-#!/bin/sh
-[ -e /.zfsci ] && /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks test /opt/zfsci/job.json
+# TODO: set root password
+
+fp = open("/mnt/etc/rc.local", "w")
+fp.write("""#!/bin/sh
+[ -e /.zfsci ] && /opt/zfsci/zfsci-run-stage /var/lib/zfsci-data/tasks test /var/lib/zfsci/job.json
 
 /opt/zfsci/zfsci-watchdog 120
 reboot
 
-exit 0
-RCLOCAL
+exit 0""")
+fp.close()
 
-exit 0
+sys.exit(0)

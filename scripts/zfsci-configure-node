@@ -4,8 +4,6 @@ if ! cd `dirname $0`; then
 	exit 1
 fi
 
-. ./zfsci.conf
-
 if [ -z "$1" ]; then
 	echo "Syntax: $0 <config>"
 	echo "Configures a zfsci node using the specified config."
@@ -26,20 +24,22 @@ fi
 
 # mark the tests as 'in progress'
 touch /mnt/.zfsci
-mkdir -p /mnt/opt/zfsci/result_files
 
 # copy zfsci scripts
-rm -Rf /mnt/opt/zfsci
-cp -a /opt/zfsci /mnt/opt
+rm -f /mnt/opt/zfsci
+ln -s /var/lib/zfsci-data/opt-zfsci /mnt/opt/zfsci
 
 # copy test config
-cp $CONFIG /mnt/opt/zfsci/job.json
+mkdir -p /mnt/var/lib/zfsci
+cp $CONFIG /mnt/var/lib/zfsci/job.json
 
 # mount persistent dir
-mkdir -p /mnt/var/lib/zfsci-data
-mount --bind /var/lib/zfsci-data /mnt/var/lib/zfsci-data
+if ! mountpoint -q /mnt/var/lib/zfsci-data; then
+	mkdir -p /mnt/var/lib/zfsci-data
+	mount --bind /var/lib/zfsci-data /mnt/var/lib/zfsci-data
+fi
 
 # run build tasks
-chroot /mnt /opt/zfsci/zfsci-run-stage /opt/zfsci/tasks build /opt/zfsci/job.json
+chroot /mnt /opt/zfsci/zfsci-run-stage /var/lib/zfsci-data/tasks build /var/lib/zfsci/job.json
 
 exit 0

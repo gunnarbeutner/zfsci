@@ -1,4 +1,4 @@
-from tasklib import Task
+from tasklib import Task, JobConfig
 
 class InstallZFSFuseTask(Task):
 	description = "zfs-fuse installation"
@@ -7,7 +7,7 @@ class InstallZFSFuseTask(Task):
 	provides = ['zfs']
 
 	def run(self):
-		if Dispatcher.get_input('fs_type') != 'zfs-fuse':
+		if JobConfig.get_input('fs_type') != 'zfs-fuse':
 			return Task.SKIPPED
 
 		if os.system("aptitude install -y zfs-fuse") != 0:

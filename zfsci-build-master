@@ -68,9 +68,11 @@ if [ ! -e $KERNEL ]; then
 	exit 1
 fi
 cp $KERNEL build/tftpboot/
+chmod 644 build/tftpboot/vmlinuz-$KERNELVER
+ln -s vmlinuz-$KERNELVER build/tftpboot/kernel
+
 mkdir -p build/nfsroot/lib/modules
 cp -a /lib/modules/$KERNELVER build/nfsroot/lib/modules
-ln -s vmlinuz-$KERNELVER build/tftpboot/kernel
 
 # we won't need the kernel when booting via PXE, however
 # the node install scripts re-uses this kernel as the
@@ -98,6 +100,7 @@ if ! mkinitramfs -d build/initramfs-tools -o build/tftpboot/initrd.img-$KERNELVE
 	exit 1
 fi
 rm -Rf build/initramfs-tools
+chmod 644 build/tftpboot/initrd.img-$KERNELVER
 ln -s initrd.img-$KERNELVER build/tftpboot/initrd
 
 zfsci_echo "DONE"
@@ -117,7 +120,7 @@ zfsci_echo "DONE"
 
 zfsci_echo -n "Installing utilities... "
 chroot build/nfsroot aptitude install -y kexec-tools debootstrap \
-	parted hdparm ntpdate nfs-client aufs-tools flock
+	parted hdparm ntpdate nfs-client aufs-tools flock python
 zfsci_echo "DONE"
 
 zfsci_echo -n "Setting up network... "
@@ -129,18 +132,18 @@ auto lo
 iface lo inet loopback
 INTERFACES
 
-echo $MASTER_HOSTNAME > build/nfsroot/etc/hostname
+echo zfsci > build/nfsroot/etc/hostname
 
 cat > build/nfsroot/etc/hosts <<HOSTS
 127.0.0.1	localhost
-127.0.0.1	$MASTER_HOSTNAME
+127.0.0.1	zfsci
 HOSTS
 
 zfsci_echo "DONE"
 
 zfsci_echo -n "Setting up fstab..."
 cat > build/nfsroot/etc/fstab <<FSTAB
-$NFS_PERSISTENT_PATH	/var/lib/zfsci-data	nfs	defaults	0	0
+$NFS_PERSISTENT_PATH	/var/lib/zfsci-data	nfs	v3,udp	0	0
 FSTAB
 
 # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=434570
@@ -161,19 +164,16 @@ cat > build/nfsroot/etc/rc.local <<RCLOCAL
 #!/bin/sh
 ntpdate pool.ntp.org >/dev/null 2>&1 &
 /opt/zfsci/zfsci-extract-result
-/opt/zfsci/zfsci-install-node DESTROY
 /opt/zfsci/zfsci-pick-job
 
-cat >> /etc/crontab <<CRONTAB
-*/5	*	*	*	*	root	flock -x /tmp/zfs-pick-job-lock /opt/zfsci/zfsci-pick-job
-CRONTAB
+#cat >> /etc/crontab <<CRONTAB
+#*/5	*	*	*	*	root	flock -x /tmp/zfs-pick-job-lock /opt/zfsci/zfsci-pick-job
+#CRONTAB
 
 exit 0
 RCLOCAL
 
-cp -a scripts build/nfsroot/opt/zfsci
-cp -a tasks build/nfsroot/opt/zfsci/
-cp zfsci.conf build/nfsroot/opt/zfsci/
+ln -s /var/lib/zfsci-data/opt-zfsci build/nfsroot/opt/zfsci
 zfsci_echo "DONE"
 
 # re-enable init scripts

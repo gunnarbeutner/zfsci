@@ -1,5 +1,5 @@
 import os
-from tasklib import Task, Dispatcher
+from tasklib import Task, Utility, JobConfig
 
 class BuildZFSTask(Task):
 	description = "Build ZFS"
@@ -9,7 +9,7 @@ class BuildZFSTask(Task):
 	provides = ['zfs']
 
 	def prepare(self):
-		if Dispatcher.get_input('fs-type') != 'zfs':
+		if JobConfig.get_input('fs-type') != 'zfs':
 			return Task.SKIPPED
 
 		try:
@@ -20,11 +20,10 @@ class BuildZFSTask(Task):
 		os.chdir("/root/build")
 		os.system("rm -Rf /root/build/spl")
 
-	def run(self):
-		gitrepo = Dispatcher.get_input('zfs-git-repo')
-		gitcommit = Dispatcher.get_input('zfs-git-commit')
+		gitrepo = JobConfig.get_input('zfs-git-repo')
+		gitcommit = JobConfig.get_input('zfs-git-commit')
 
-		repodir = "%s/repositories/%s" % (Dispatcher.get_persistent_dir(), gitrepo['zfs'])
+		repodir = "%s/repositories/%s" % (Utility.get_persistent_dir(), gitrepo['zfs'])
 		if os.system("git clone %s zfs" % (repodir)) != 0:
 			return Task.FAILED
 
@@ -33,6 +32,9 @@ class BuildZFSTask(Task):
 		if os.system("git reset --hard `git rev-list --max-count=1 --before=%s %s`" % (gitcommit, gitrepo['branch'])) != 0:
 			return Task.FAILED
 
+		return Task.PASSED
+
+	def run(self):
 		if os.system("./configure --prefix=/usr") != 0:
 			return Task.FAILED
 

@@ -1,0 +1,13 @@
+#!/bin/sh
+if ! cd `dirname $0`; then
+	echo "Could not cd to source directory."
+	exit 1
+fi
+
+. ./zfsci.conf
+
+rsync -av --delete scripts/ $PERSISTENT_PATH/opt-zfsci/
+cp *.conf $PERSISTENT_PATH/opt-zfsci/
+cp zfsci-py.conf $PERSISTENT_PATH/zfsci.conf
+
+rsync -av --delete tasks/ $PERSISTENT_PATH/tasks/

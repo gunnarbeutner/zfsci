@@ -1,12 +1,15 @@
 import os
 import glob
-from tasklib import Task
+from tasklib import Task, JobConfig
 
-class InstallKernelTask(Task):
+class InstallKernelDebianTask(Task):
 	description = "Linux kernel installation"
 	stage = "build"
 
 	def run(self):
+		if JobConfig.get_input('distribution') != 'debian':
+			return Task.SKIPPED
+
 		os.system("aptitude install -y wireless-crda")
 
 		if os.system("dpkg -l | grep wireless-crda") != 0:
@@ -31,7 +34,7 @@ Package: wireless-crda
 		if os.system("aptitude install -y initramfs-tools module-init-tools") != 0:
 			return Task.FAILED
 
-		kerneldir = "%s/kernels/%s/" % (Dispatcher.get_persistent_dir(), Dispatcher.get_input('kernel-version'))
+		kerneldir = "%s/kernels/%s/" % (Utility.get_persistent_dir(), JobConfig.get_input('kernel-version'))
 
 		os.system("dpkg -i %s/*.deb" % (kerneldir))
 
@@ -47,4 +50,4 @@ Package: wireless-crda
 
 		return Task.PASSED
 
-InstallKernelTask.register()
+InstallKernelDebianTask.register()

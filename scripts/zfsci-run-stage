@@ -2,10 +2,10 @@
 import sys
 import os
 import glob
-from tasklib import Dispatcher
+from tasklib import JobConfig, Dispatcher
 
-if len(sys.argv) < 3:
-	print 'Syntax: %s <tasks-dir> <stage> [config-file]' % (sys.argv[0])
+if len(sys.argv) < 4:
+	print 'Syntax: %s <tasks-dir> <stage> <config-file>' % (sys.argv[0])
 	sys.exit(1)
 
 tasksdir = sys.argv[1]
@@ -15,14 +15,13 @@ if not os.path.isdir(tasksdir):
 	print 'Tasks dir "%s" does not exist.' % (tasksdir)
 	sys.exit(1)
 
-if len(sys.argv) >= 4:
-	configfile = sys.argv[3]
+configfile = sys.argv[3]
 
-	if not os.path.isfile(configfile):
-		print 'Config file "%s" does not exist.' % (configfile)
-		sys.exit(1)
+if not os.path.isfile(configfile):
+	print 'Config file "%s" does not exist.' % (configfile)
+	sys.exit(1)
 
-	Dispatcher.load_hive(configfile)
+JobConfig.load(configfile)
 
 for taskfile in glob.glob('%s/*.py' % (tasksdir)):
 	execfile(taskfile)

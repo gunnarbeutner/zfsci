@@ -6,10 +6,18 @@ class BuildKernelTask(Task):
 	description = "Build Linux kernel"
 	stage = "test"
 
-	dependencies = ['kernel-source']
+	dependencies = ['filesystem']
+
+	KERNEL_URL = "http://www.de.kernel.org/pub/linux/kernel/v2.6/linux-2.6.38.tar.gz"
 
 	def prepare(self):
+		# TODO: remove this
+		return Task.SKIPPED
+
 		os.chdir("/tank")
+
+		if os.system("wget -O - %s | tar xz" % (BuildKernelTask.KERNEL_URL)) != 0:
+			return Task.FAILED
 
 		for dir in glob.glob("linux-*"):
 			os.chdir(dir)

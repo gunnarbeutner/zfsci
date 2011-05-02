@@ -163,20 +163,13 @@ class Attribute(object):
 
 class Dispatcher(object):
 	tasks = []
-	hive = None
-	hivefile = None
 
 	@staticmethod
 	def register_task(taskcls):
-		assert Dispatcher.hive != None
+		assert JobConfig.is_valid()
 
-		if not 'output' in Dispatcher.hive:
-			Dispatcher.hive['output'] = {}
-
-		if not str(taskcls) in Dispatcher.hive['output']:
-			Dispatcher.hive['output'][str(taskcls)] = {}
-
-		taskobj = taskcls(Dispatcher.hive['output'][str(taskcls)])
+		output = JobConfig.get_output_dict(str(taskcls))
+		taskobj = taskcls(output)
 		Dispatcher.tasks.append(taskobj)
 
 	@staticmethod
@@ -213,37 +206,57 @@ class Dispatcher(object):
 			(task, task.__class__)
 
 		cwd = os.getcwd()
-		Dispatcher.rearm_watchdog(7200)
+		Utility.rearm_watchdog(7200)
 		task._run()
-		Dispatcher.rearm_watchdog(0)
+		Utility.rearm_watchdog(0)
 		os.chdir(cwd)
 
 		print "Task result: %s" % (task.get_output('status'))
 
-		Dispatcher.save_hive()
+		JobConfig.save()
+
+class JobConfig(object):
+	_config = None
+	_configfile = None
 
 	@staticmethod
 	def set_input(key, value):
-		Dispatcher.hive['input'][key] = value
+		assert JobConfig.is_valid()
+
+		JobConfig._config['input'][key] = value
 
 	@staticmethod
 	def get_input(key, default=None):
-		return Dispatcher.hive['input'].get(key)
+		assert JobConfig.is_valid()
+
+		return JobConfig._config['input'].get(key, default)
 
 	@staticmethod
-	def load_hive(hivefile):
-		Dispatcher.hivefile = hivefile
+	def get_output_dict(key):
+		assert JobConfig.is_valid()
 
-		fp = open(Dispatcher.hivefile, 'r')
-		Dispatcher.hive = json.load(fp)
+		if not 'output' in JobConfig._config:
+			JobConfig._config['output'] = {}
+
+		if not key in JobConfig._config['output']:
+			JobConfig._config['output'][key] = {}
+
+		return JobConfig._config['output'][key]
+
+	@staticmethod
+	def load(configfile):
+		JobConfig._configfile = configfile
+
+		fp = open(configfile, 'r')
+		JobConfig._config = json.load(fp)
 		fp.close()
 
 	@staticmethod
-	def save_hive():
-		assert Dispatcher.hive != None
+	def save():
+		assert JobConfig.is_valid()
 
-		fp = open(Dispatcher.hivefile, 'w')
-		json.dump(Dispatcher.hive, fp)
+		fp = open(JobConfig._configfile, 'w')
+		json.dump(JobConfig._config, fp)
 
 		# TODO: use a temp file and rename()
 		fp.flush()
@@ -252,13 +265,35 @@ class Dispatcher(object):
 		fp.close()
 
 	@staticmethod
+	def is_valid():
+		return JobConfig._config != None
+
+class Utility(object):
+	_config = None
+
+	@staticmethod
 	def get_result_dir():
-		return "/opt/zfsci/result_files/"
+		return "/var/lib/zfsci"
 
 	@staticmethod
 	def get_persistent_dir():
 		return "/var/lib/zfsci-data/"
 
 	@staticmethod
+	def get_source_dir():
+		return None
+
+	@staticmethod
+	def get_zfsci_config():
+		if Utility._config != None:
+			return Utility._config
+
+		config = {}
+		execfile(Utility.get_persistent_dir() + '/zfsci.conf', config)
+
+		return config
+
+	@staticmethod
 	def rearm_watchdog(timeout):
 		os.system("/opt/zfsci/zfsci-watchdog %d" % (timeout))
+
