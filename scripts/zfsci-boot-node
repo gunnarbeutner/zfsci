@@ -1,17 +1,12 @@
-#!/bin/sh
-if ! cd `dirname $0`; then
-	echo "Could not cd to scripts directory."
-	exit 1
-fi
+#!/usr/bin/env python
+import os
+import sys
+from partlib import PartitionBuilder
 
-. ./zfsci.conf
+PartitionBuilder.mount_partitions()
 
-if ! ./zfsci-mount-node; then
-	echo "Node root fs could not be mounted."
-	exit 1
-fi
+if not os.system("kexec --command-line='root=%s ro crashkernel=128M' " % (PartitionBuilder.get_rootpart()) + \
+		"--initrd=/mnt/initrd.img /mnt/vmlinuz"):
+	sys.exit(1)
 
-# boot the new system
-ROOTPART=${INSTALLDEV}1
-kexec --command-line="root=$ROOTPART ro crashkernel=128M" \
-	--initrd=/mnt/initrd.img /mnt/vmlinuz
+sys.exit(0)

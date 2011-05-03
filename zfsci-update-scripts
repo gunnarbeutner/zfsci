@@ -4,7 +4,7 @@ if ! cd `dirname $0`; then
 	exit 1
 fi
 
-. ./zfsci.conf
+PERSISTENT_PATH=`scripts/zfsci-get-config persistent_path`
 
 rsync -av --delete scripts/ $PERSISTENT_PATH/opt-zfsci/
 cp *.conf $PERSISTENT_PATH/opt-zfsci/

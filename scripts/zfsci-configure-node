@@ -1,45 +1,39 @@
-#!/bin/sh
-if ! cd `dirname $0`; then
-	echo "Could not cd to scripts directory."
-	exit 1
-fi
+#!/usr/bin/env python
+import os
+import sys
+import shutil
+from partlib import PartitionBuilder
 
-if [ -z "$1" ]; then
-	echo "Syntax: $0 <config>"
-	echo "Configures a zfsci node using the specified config."
-	exit 1
-fi
+if len(sys.argv) < 2:
+	print "Syntax: %s <config>" % (sys.argv[0])
+	sys.exit(1)
 
-CONFIG=$1
+configfile = sys.argv[1]
 
-if ! ./zfsci-mount-node; then
-	echo "Node root FS could not be mounted."
-	exit 1
-fi
+if not os.path.isfile(configfile):
+	print "The specified config file does not exist."
+	sys.exit(1)
 
-if [ ! -f $CONFIG ]; then
-	echo "The config file you specified does not exist."
-	exit 1
-fi
+PartitionBuilder.mount_partitions()
 
 # mark the tests as 'in progress'
-touch /mnt/.zfsci
+open("/mnt/.zfsci", "w").close()
 
-# copy zfsci scripts
-rm -f /mnt/opt/zfsci
-ln -s /var/lib/zfsci-data/opt-zfsci /mnt/opt/zfsci
+# symlink zfsci scripts
+if not os.path.islink("/mnt/opt/zfsci"):
+	os.symlink("/var/lib/zfsci-data/opt-zfsci", "/mnt/opt/zfsci")
 
 # copy test config
-mkdir -p /mnt/var/lib/zfsci
-cp $CONFIG /mnt/var/lib/zfsci/job.json
+try:
+	os.makedirs("/mnt/var/lib/zfsci")
+except OSError:
+	pass
 
-# mount persistent dir
-if ! mountpoint -q /mnt/var/lib/zfsci-data; then
-	mkdir -p /mnt/var/lib/zfsci-data
-	mount --bind /var/lib/zfsci-data /mnt/var/lib/zfsci-data
-fi
+shutil.copy(configfile, "/mnt/var/lib/zfsci/job.json")
 
 # run build tasks
-chroot /mnt /opt/zfsci/zfsci-run-stage /var/lib/zfsci-data/tasks build /var/lib/zfsci/job.json
+if os.system("chroot /mnt /opt/zfsci/zfsci-run-stage /var/lib/zfsci-data/tasks build /var/lib/zfsci/job.json") != 0:
+	print "Could not run build tasks."
+	sys.exit(1)
 
-exit 0
+sys.exit(0)

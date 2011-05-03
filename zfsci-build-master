@@ -4,8 +4,6 @@ if ! cd `dirname $0`; then
 	exit 1
 fi
 
-. ./zfsci.conf
-
 LOGFILE=`mktemp --tmpdir zfsci.XXXXXX`
 
 echo "Building zfsci image... (build output can be found in $LOGFILE)"
@@ -41,6 +39,8 @@ if ! debootstrap squeeze build/nfsroot; then
 fi
 zfsci_echo "DONE"
 
+TFTP_PATH=`scripts/zfsci-get-config tftp_path`
+NFS_ROOT_PATH=`scripts/zfsci-get-config nfs_root_path`
 cat > build/tftpboot/pxelinux-config <<PXELINUX
 prompt 1
 timeout 10
@@ -142,6 +142,7 @@ HOSTS
 zfsci_echo "DONE"
 
 zfsci_echo -n "Setting up fstab..."
+NFS_PERSISTENT_PATH=`scripts/zfsci-get-config nfs_persistent_path`
 cat > build/nfsroot/etc/fstab <<FSTAB
 $NFS_PERSISTENT_PATH	/var/lib/zfsci-data	nfs	v3,udp	0	0
 FSTAB

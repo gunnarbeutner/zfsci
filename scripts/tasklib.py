@@ -4,6 +4,7 @@ import traceback
 from time import time
 import hashlib
 import itertools
+import inspect
 
 class Task(object):
 	description = ""
@@ -280,8 +281,12 @@ class Utility(object):
 		return "/var/lib/zfsci-data/"
 
 	@staticmethod
+	def get_scripts_dir():
+		return os.path.realpath(os.path.dirname(__file__))
+
+	@staticmethod
 	def get_source_dir():
-		return None
+		return os.path.realpath(Utility.get_scripts_dir() + '/..')
 
 	@staticmethod
 	def get_zfsci_config():
@@ -289,11 +294,15 @@ class Utility(object):
 			return Utility._config
 
 		config = {}
-		execfile(Utility.get_persistent_dir() + '/zfsci.conf', config)
+
+		configfile = Utility.get_source_dir() + '/zfsci.conf'
+		if not os.path.isfile(configfile):
+			configfile = Utility.get_persistent_dir() + '/zfsci.conf'
+
+		execfile(configfile, config)
 
 		return config
 
 	@staticmethod
 	def rearm_watchdog(timeout):
 		os.system("/opt/zfsci/zfsci-watchdog %d" % (timeout))
-

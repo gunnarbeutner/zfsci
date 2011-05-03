@@ -2,9 +2,9 @@
 import sys
 import os
 from tasklib import Utility, JobConfig
+from partlib import PartitionBuilder
 
-scriptsdir = os.path.dirname(os.path.realpath(__file__))
-os.chdir(scriptsdir)
+os.chdir(Utility.get_scripts_dir())
 
 if len(sys.argv) < 2:
 	print "Syntax: %s <configfile>" % (sys.argv[0])
@@ -18,56 +18,9 @@ if not os.path.isfile(configfile):
 
 JobConfig.load(configfile)
 
-if os.system("./zfsci-unmount-node") != 0:
-	print "zfsci-unmount-node failed."
-	sys.exit(1)
-
-config = Utility.get_zfsci_config()
-
-install_device = config['install_device']
-
-rootpart = install_device + '1'
-JobConfig.set_input('rootpart', rootpart)
-
-swappart = install_device + '2'
-JobConfig.set_input('swappart', swappart)
-
-testpart = install_device + '3'
-JobConfig.set_input('testpart', testpart)
-
-JobConfig.save()
-
-if os.system("dd if=/dev/zero of=%s bs=512 count=1" % (install_device)) != 0:
-	print "Could not erase old partition table."
-	sys.exit(1)
-
-if os.system("parted --script -- %s mktable msdos" % (install_device)) != 0:
-	print "Could not create new partition table."
-	sys.exit(1)
-
-if os.system("parted --script -- %s mkpart primary ext2 1M 10G" % (install_device)) != 0:
-	print "Could not create new / partition."
-	sys.exit(1)
-
-if os.system("parted --script -- %s mkpart primary linux-swap 10G 14G" % (install_device)) != 0:
-	print "Could not create new swap partition."
-	sys.exit(1)
-
-if os.system("parted --script -- %s mkpart primary sun-ufs 14G -1s" % (install_device)) != 0:
-	print "Could not create new test partition."
-	sys.exit(1)
-
-if os.system("mke2fs -j -m 0 -L / -I 128 %s" % (rootpart)) != 0:
-	print "Create not create new / filesystem."
-	sys.exit(1)
-
-if os.system("mkswap %s" % (swappart)) != 0:
-	print "Could not create new swap filesystem."
-	sys.exit(1)
-
-if os.system("./zfsci-mount-node") != 0:
-	print "Could not mount node filesystem."
-	sys.exit(1)
+PartitionBuilder.unmount_partitions()
+PartitionBuilder.setup_partitions()
+PartitionBuilder.mount_partitions()
 
 distimage = '/var/lib/zfsci-data/dists/%s.tar.gz' % (JobConfig.get_input('distribution'))
 
@@ -82,15 +35,15 @@ fp = open("/mnt/etc/hostname", "w")
 fp.write("zfsci-node")
 fp.close()
 
+config = Utility.get_zfsci_config()
+
 fp = open("/mnt/etc/fstab", "w")
 fp.write("""%s	/			ext3	defaults	0	0
 %s	none			swap	sw		0	0
 %s	/var/lib/zfsci-data	nfs	ro		0	0
 """ % \
-(rootpart, swappart, config['nfs_persistent_path']))
+(PartitionBuilder.get_rootpart(), PartitionBuilder.get_swappart(), config['nfs_persistent_path']))
 fp.close()
-
-os.makedirs("/mnt/var/lib/zfsci-data")
 
 # TODO: set root password
 

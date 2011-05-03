@@ -1,5 +1,6 @@
 import os
 from tasklib import Task, JobConfig
+from partlib import PartitionBuilder
 
 class CreateExtFSTask(Task):
 	description = "Create ext FS"
@@ -13,7 +14,7 @@ class CreateExtFSTask(Task):
 		if not fs_type in ['ext2', 'ext3', 'ext4']:
 			return Task.SKIPPED
 
-		if os.system("mkfs.%s /dev/sda3" % (fs_type)) != 0:
+		if os.system("mkfs.%s %s" % (fs_type, PartitionBuilder.get_testpart())) != 0:
 			return Task.FAILED
 
 		try:
@@ -21,7 +22,7 @@ class CreateExtFSTask(Task):
 		except OSError:
 			pass
 
-		if os.system("mount /dev/sda3 /tank") != 0:
+		if os.system("mount %s /tank" % (PartitionBuilder.get_testpar())) != 0:
 			return Task.FAILED
 
 		return Task.PASSED
