@@ -16,6 +16,9 @@ zfsci_echo() {
 	echo $@ >&9
 }
 
+# install debootstrap
+aptitude install -y debootstrap
+
 # re-create build directory
 zfsci_echo -n "Creating build directory... "
 mkdir -p build
@@ -31,7 +34,7 @@ exit 101
 POLICYRCD
 chmod +x build/nfsroot/usr/sbin/policy-rc.d
 
-zfsci_echo -n "Building NFS root filesystem... "
+zfsci_echo -n "Building root filesystem... "
 if ! debootstrap squeeze build/nfsroot; then
 	zfsci_echo "FAILED"
 	zfsci_echo "Error: debootstrap failed."
@@ -54,12 +57,6 @@ PXELINUX
 zfsci_echo -n "Copying kernel and modules... "
 KERNELVER=`uname -r`
 
-if ! grep ^CONFIG_CRASH_DUMP=y /boot/config-$KERNELVER >/dev/null 2>&1; then
-	zfsci_echo "FAILED"
-	zfsci_echo "Error: Your kernel does not support crash dumps (CONFIG_CRASH_DUMP)."
-	exit 1
-fi
-
 KERNEL=/boot/vmlinuz-$KERNELVER
 INITRD=/boot/initrd.img-$KERNELVER
 if [ ! -e $KERNEL ]; then
@@ -73,13 +70,6 @@ ln -s vmlinuz-$KERNELVER build/tftpboot/kernel
 
 mkdir -p build/nfsroot/lib/modules
 cp -a /lib/modules/$KERNELVER build/nfsroot/lib/modules
-
-# we won't need the kernel when booting via PXE, however
-# the node install scripts re-uses this kernel as the
-# node's crash kernel
-mkdir -p build/nfsroot/boot
-cp $KERNEL build/nfsroot/boot
-
 zfsci_echo "DONE"
 
 zfsci_echo -n "Generating initrd... "
@@ -120,7 +110,18 @@ zfsci_echo "DONE"
 
 zfsci_echo -n "Installing utilities... "
 chroot build/nfsroot aptitude install -y kexec-tools debootstrap \
-	parted hdparm ntpdate nfs-client aufs-tools flock python
+	parted hdparm ntpdate nfs-client aufs-tools flock python \
+	initramfs-tools equivs
+
+cat > build/nfsroot/wireless-crda <<PKG
+Section: misc
+Priority: optional
+Standards-Version: 3.6.2
+Package: wireless-crda
+PKG
+
+chroot build/nfsroot equivs-build wireless-crda
+chroot build/nfsroot dpkg -i wireless-crda_1.0_all.deb
 zfsci_echo "DONE"
 
 zfsci_echo -n "Setting up network... "
@@ -167,15 +168,18 @@ ntpdate pool.ntp.org >/dev/null 2>&1 &
 /opt/zfsci/zfsci-extract-result
 /opt/zfsci/zfsci-pick-job
 
-#cat >> /etc/crontab <<CRONTAB
-#*/5	*	*	*	*	root	flock -x /tmp/zfs-pick-job-lock /opt/zfsci/zfsci-pick-job
-#CRONTAB
+cat >> /etc/crontab <<CRONTAB
+*/5	*	*	*	*	root	flock -x /tmp/zfs-pick-job-lock /opt/zfsci/zfsci-pick-job
+CRONTAB
 
 exit 0
 RCLOCAL
 
-ln -s /var/lib/zfsci-data/opt-zfsci build/nfsroot/opt/zfsci
+ln -s /var/lib/zfsci-data/scripts build/nfsroot/opt/zfsci
 zfsci_echo "DONE"
+
+# clean up
+chroot build/nfsroot aptitude clean
 
 # re-enable init scripts
 rm -f build/nfsroot/usr/sbin/policy-rc.d

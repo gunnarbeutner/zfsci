@@ -21,7 +21,7 @@ open("/mnt/.zfsci", "w").close()
 
 # symlink zfsci scripts
 if not os.path.islink("/mnt/opt/zfsci"):
-	os.symlink("/var/lib/zfsci-data/opt-zfsci", "/mnt/opt/zfsci")
+	os.symlink("/var/lib/zfsci-data/scripts", "/mnt/opt/zfsci")
 
 # copy test config
 try:

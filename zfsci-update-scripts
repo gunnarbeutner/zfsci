@@ -6,8 +6,6 @@ fi
 
 PERSISTENT_PATH=`scripts/zfsci-get-config persistent_path`
 
-rsync -av --delete scripts/ $PERSISTENT_PATH/opt-zfsci/
-cp *.conf $PERSISTENT_PATH/opt-zfsci/
-cp zfsci-py.conf $PERSISTENT_PATH/zfsci.conf
-
+rsync -av --delete scripts/ $PERSISTENT_PATH/scripts/
 rsync -av --delete tasks/ $PERSISTENT_PATH/tasks/
+cp zfsci.conf $PERSISTENT_PATH/

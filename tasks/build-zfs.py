@@ -18,7 +18,7 @@ class BuildZFSTask(Task):
 			pass
 
 		os.chdir("/root/build")
-		os.system("rm -Rf /root/build/spl")
+		os.system("rm -Rf /root/build/zfs")
 
 		gitrepo = JobConfig.get_input('zfs-git-repo')
 		gitcommit = JobConfig.get_input('zfs-git-commit')

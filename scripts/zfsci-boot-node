@@ -5,8 +5,14 @@ from partlib import PartitionBuilder
 
 PartitionBuilder.mount_partitions()
 
-if not os.system("kexec --command-line='root=%s ro crashkernel=128M' " % (PartitionBuilder.get_rootpart()) + \
-		"--initrd=/mnt/initrd.img /mnt/vmlinuz"):
+if os.system("mount -o remount,ro /mnt") != 0:
+	sys.exit(1)
+
+if os.system("sync") != 0:
+	sys.exit(1)
+
+if os.system("kexec --command-line='root=%s ro crashkernel=128M' " % (PartitionBuilder.get_rootpart()) + \
+		"--initrd=/mnt/initrd.img /mnt/vmlinuz") != 0:
 	sys.exit(1)
 
 sys.exit(0)

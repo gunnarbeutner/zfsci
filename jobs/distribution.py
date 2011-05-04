@@ -14,10 +14,11 @@ class DistributionAttribute(Attribute):
 			except OSError:
 				pass
 
-		distsscriptdir = os.path.dirname(os.path.realpath(__file__)) + '/dists'
+		distsscriptdir = Utility.get_source_dir() + '/dists'
 
 		distributions = [
-			'debian'
+			'debian',
+			'opensuse'
 		]
 
 		for distribution in distributions:

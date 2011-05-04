@@ -16,6 +16,9 @@ umount $BUILDDIR/dev $BUILDDIR/sys $BUILDDIR/proc >/dev/null 2>&1
 
 rm -Rf $BUILDDIR
 
+# install debootstrap (we really should have debootstrap by now, but better be sure...)
+aptitude install debootstrap
+
 # disable init scripts in the build environment
 mkdir -p $BUILDDIR/usr/sbin
 cat > $BUILDDIR/usr/sbin/policy-rc.d <<POLICYRCD
@@ -55,16 +58,13 @@ chroot $BUILDDIR aptitude update
 chroot $BUILDDIR aptitude install -y python nfs-client \
 	kdump-tools file initramfs-tools build-essential
 
-# copy crash kernel and build initrd
+# copy crash kernel and initrd
 CRASHKERNEL="vmlinuz-`uname -r`"
 CRASHINITRD="initrd.img-`uname -r`"
 CRASHCONFIG="config-`uname -r`"
-cp /boot/$CRASHKERNEL /boot/$CRASHCONFIG $BUILDDIR/boot
-cp -a /lib/modules/`uname -r` $BUILDDIR/lib/modules
-chroot $BUILDDIR update-initramfs -c -k `uname -r`
 mkdir $BUILDDIR/crashkernel
-mv $BUILDDIR/boot/$CRASHKERNEL $BUILDDIR/boot/$CRASHINITRD \
-	$BUILDDIR/boot/$CRASHCONFIG $BUILDDIR/crashkernel
+cp /boot/$CRASHKERNEL /boot/$CRASHINITRD /boot/$CRASHCONFIG $BUILDDIR/crashkernel
+cp -a /lib/modules/`uname -r` $BUILDDIR/lib/modules
 
 mkdir -p $BUILDDIR/var/crash
 

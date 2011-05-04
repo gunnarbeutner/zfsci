@@ -139,7 +139,6 @@ class Attribute(object):
 		cwd = os.getcwd()
 		for attr in Attribute._attributes:
 			inputs[attr.name] = attr.get_values()
-		os.chdir(cwd)
 
 		jobdescs = []
 
@@ -159,6 +158,8 @@ class Attribute(object):
 
 			if validation_success:
 				jobdescs.append(jobdesc)
+
+		os.chdir(cwd)
 
 		return jobdescs
 

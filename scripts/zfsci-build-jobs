@@ -8,7 +8,9 @@ from tasklib import Attribute, Utility
 os.chdir(Utility.get_source_dir())
 
 for taskfile in glob.glob('jobs/*.py'):
+	cwd = os.getcwd()
 	execfile(taskfile)
+	os.chdir(cwd)
 
 try:
 	os.makedirs('build/jobs')
