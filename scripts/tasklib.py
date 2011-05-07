@@ -43,6 +43,16 @@ class Task(object):
 			self.set_output('status', Task.DEPENDENCY_ERROR)
 			return
 
+		clshash = hashlib.md5(str(self.__class__)).hexdigest()
+		outputfile = Utility.get_result_dir() + '/output_' + clshash
+		outputfp = open(outputfile, "w")
+
+		stdoutfd = os.dup(1)
+		stderrfd = os.dup(2)
+
+		os.dup2(outputfp.fileno(), 1)
+		os.dup2(outputfp.fileno(), 2)
+
 		self.set_output('status', Task.RUNNING)
 
 		try:
@@ -55,7 +65,7 @@ class Task(object):
 
 			if status == None:
 				status = Task.FAILED
-		except Exception as exc:
+		except Exception, exc:
 			status = Task.FAILED
 
 			self.set_output('exception', str(exc))
@@ -65,13 +75,28 @@ class Task(object):
 
 		try:
 			self.finish()
-		except Exception as exc:
+		except Exception, exc:
 			self.set_output('exception', str(exc))
 			self.set_output('stacktrace', traceback.format_exc())
 
 			print exc
 
 		self.set_output('status', status)
+
+		os.dup2(stdoutfd, 1)
+		os.dup2(stderrfd, 2)
+
+		os.close(stdoutfd)
+		os.close(stderrfd)
+
+		outputfp.close()
+
+		outputfp = open(outputfile, "r")
+		output = outputfp.read()
+		self.set_output('output', output)
+		outputfp.close()
+
+		os.unlink(outputfile)
 
 	def __str__(self):
 		return self.description

@@ -18,7 +18,9 @@ class DistributionAttribute(Attribute):
 
 		distributions = [
 			'debian',
-			'opensuse'
+			#'opensuse', # broken
+			#'centos', # mostly works
+			#'scientific' # horribly broken
 		]
 
 		for distribution in distributions:

@@ -22,7 +22,7 @@ class CreateExtFSTask(Task):
 		except OSError:
 			pass
 
-		if os.system("mount %s /tank" % (PartitionBuilder.get_testpar())) != 0:
+		if os.system("mount %s /tank" % (PartitionBuilder.get_testpart())) != 0:
 			return Task.FAILED
 
 		return Task.PASSED

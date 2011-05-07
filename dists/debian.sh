@@ -56,7 +56,8 @@ chroot $BUILDDIR aptitude update
 
 # install additional packages
 chroot $BUILDDIR aptitude install -y python nfs-client \
-	kdump-tools file initramfs-tools build-essential
+	kdump-tools file initramfs-tools build-essential \
+	python2.6
 
 # copy crash kernel and initrd
 CRASHKERNEL="vmlinuz-`uname -r`"

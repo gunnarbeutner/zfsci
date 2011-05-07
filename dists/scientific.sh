@@ -9,7 +9,7 @@ if [ -z "$1" ]; then
 	exit 1
 fi
 
-BUILDDIR=/tmp/opensuse-fs
+BUILDDIR=/tmp/scientific-fs
 IMAGEFILE=$1
 
 umount $BUILDDIR/dev $BUILDDIR/sys $BUILDDIR/proc >/dev/null 2>&1
@@ -21,28 +21,41 @@ aptitude install -y rinse
 
 # install base system
 if ! rinse --config ../misc/rinse/rinse.conf --pkgs-dir ../misc/rinse/ \
-		--directory $BUILDDIR --distribution opensuse-11.4 --arch amd64; then
+		--directory $BUILDDIR --distribution scientific-6 --arch amd64; then
 	echo "rinse failed"
 	exit 1
 fi
 
+# copy resolv.conf
+cp /etc/resolv.conf $BUILDDIR/etc/
+
 # set up networking
-cat > $BUILDDIR/etc/sysconfig/network/ifcfg-eth0 <<NETWORK
+cat > $BUILDDIR/etc/sysconfig/network-scripts/ifcfg-eth0 <<NETWORK
 DEVICE=eth0
 BOOTPROTO=dhcp
-STARTMODE=auto
+ONBOOT=yes
+NETWORK
+
+cat > $BUILDDIR/etc/sysconfig/network <<NETWORK
+NETWORKING=yes
+HOSTNAME=zfsci-node
 NETWORK
 
 # disable cron
-chroot $BUILDDIR chkconfig cron off
+chroot $BUILDDIR chkconfig crond off
 
 # mount dev/sys/proc
 mount --bind /dev $BUILDDIR/dev
 mount --bind /sys $BUILDDIR/sys
 mount -t proc none $BUILDDIR/proc
 
+# install epel repository
+wget -O $BUILDDIR/epel-release-6-5.noarch.rpm http://download.fedoraproject.org/pub/epel/6/i386/epel-release-6-5.noarch.rpm
+chroot $BUILDDIR rpm -i epel-release-6-5.noarch.rpm
+rm -f $BUILDDIR/epel-release-6-5.noarch.rpm
+
 # install additional packages
-chroot $BUILDDIR zypper install -y python nfs-client kdump gcc make mkinitrd
+chroot $BUILDDIR yum install -y python26 nfs-utils crash gcc make wget
 
 # copy crash kernel and build initrd
 CRASHKERNEL="vmlinuz-`uname -r`"
@@ -66,9 +79,6 @@ mkdir -p $BUILDDIR/var/crash
 #cat >> $BUILDDIR/etc/default/kexec <<KEXEC
 #LOAD_KEXEC=false
 #KEXEC
-
-# clean up package archive
-chroot $BUILDDIR zypper clean
 
 # umount dev/sys/proc
 umount $BUILDDIR/dev $BUILDDIR/sys $BUILDDIR/proc
@@ -95,7 +105,7 @@ chmod +x $BUILDDIR/etc/init.d/rc-local
 
 chroot $BUILDDIR chkconfig --add rc-local
 
-tar cfzC /tmp/opensuse.tar.gz $BUILDDIR .
-mv /tmp/opensuse.tar.gz $IMAGEFILE
+tar cfzC /tmp/scientific.tar.gz $BUILDDIR .
+mv /tmp/scientific.tar.gz $IMAGEFILE
 
 exit 0
