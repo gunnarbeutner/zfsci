@@ -1,0 +1,197 @@
+#!/usr/bin/env python2.6
+import sys
+import os
+import json
+import cgi
+from datetime import datetime
+from joblib import Job, get_job_session
+
+if len(sys.argv) < 2:
+	print "Syntax: %s <output-dir>" % (sys.argv[0])
+	sys.exit(1)
+
+resultdir = sys.argv[1]
+
+session = get_job_session()
+jobs = Job.find_all(session)
+
+try:
+	os.makedirs(resultdir + '/jobs')
+except OSError:
+	pass
+
+try:
+	os.makedirs(resultdir + '/results')
+except OSError:
+	pass
+
+# detailed job/result pages
+for job in jobs:
+	jfp = open(resultdir + '/jobs/' + job.hash + '.html', 'w')
+
+	attribs = json.JSONEncoder(indent=1).encode(job.attributes)
+
+	jfp.write("""
+<html>
+<head>
+	<title>Job: %s</title>
+</head>
+<body>
+<h1>Job %s</h1>
+
+<h2>Input</h2>
+<pre>%s</pre>
+
+<h2>Results</h2>
+<ul>
+""" % (job.hash, job.hash, cgi.escape(attribs)))
+
+	for result in job.results:
+		jfp.write("""
+<li><a href="../results/%s.html">%s</a></li>
+""" % (result.hash, result.hash))
+
+		rfp = open(resultdir + '/results/' + result.hash + '.html', 'w')
+
+		rfp.write("""
+<html>
+<head>
+	<title>Result: %s</title>
+</head>
+<body>
+<h1>Result %s</h1>
+
+<h2>Job</h2>
+<a href="../jobs/%s.html">%s</a>
+
+<h2>Tasks</h2>
+""" % (result.hash, result.hash, job.hash, job.hash))
+
+		for (task, taskinfo) in result.attributes.iteritems():
+			rfp.write("""
+<h3>Task %s</h3>
+<table>
+  <tr>
+    <th>Parameter</th>
+    <th style="text-align: left;">Value</th>
+  </tr>
+""" % (cgi.escape(task)))
+
+			for (key, value) in taskinfo.iteritems():
+				rfp.write("""
+  <tr>
+    <td style="vertical-align: top;">%s</td>
+    <td style="vertical-align: top;"><pre>%s</pre></td>
+  </tr>
+""" % (cgi.escape(str(key)), cgi.escape(str(value))))
+
+			rfp.write("""
+</table>
+""")
+
+		rfp.close()
+
+	jfp.write("""
+</ul>
+
+</body>
+</html>
+""")
+
+	jfp.close()
+
+print """
+<html>
+<head>
+	<title>ZFSCI results</title>
+</head>
+<body>
+
+<table>
+"""
+
+jobs = Job.find_all(session)
+
+timestamps = []
+
+def get_timestamp(job):
+	return job.attributes['zfs-git-commit']
+
+for job in jobs:
+	timestamp = get_timestamp(job)
+
+	if timestamp != None and timestamp not in timestamps:
+		timestamps.append(timestamp)
+
+timestamps = reversed(sorted(timestamps))
+
+def get_host(job):
+	return job.attributes['distribution'] + ' ' + job.attributes['kernel-version']
+
+hosts = []
+
+for job in jobs:
+	host = get_host(job)
+
+	if host not in hosts:
+		hosts.append(host)
+
+hosts = sorted(hosts)
+
+print """
+<tr>
+  <td>Timestamp / Host</td>
+"""
+
+for host in hosts:
+	print '<td>' + host + '</td>'
+
+print """
+</tr>
+"""
+
+for timestamp in timestamps:
+	print """
+<tr>
+  <td>%s</td>
+""" % (datetime.fromtimestamp(timestamp))
+
+	for host in hosts:
+		result = None
+
+		for job in Job.find_all(session):
+			if get_timestamp(job) != timestamp or get_host(job) != host:
+				continue
+
+			if job.attributes['zfs-git-repo']['spl'] != 'behlendorf-spl':
+				continue
+
+			max_ts = None
+			for result in job.results:
+				if max_ts == None or result.timestamp > max_ts.timestamp:
+					max_ts = result
+			result = max_ts
+
+			break
+
+		if result == None:
+			print '<td>&#8212;</td>' # Unicode EM DASH
+			continue
+
+		errors = result.count_errors()
+
+		print """
+<td style="background-color: %s;">
+  <a href="results/%s.html">
+    %d errors
+  </a>
+</td>""" % ('red' if errors > 0 else 'chartreuse', result.hash, errors)
+
+	print '</tr>'
+
+print """
+</table>
+
+</body>
+</html>
+"""

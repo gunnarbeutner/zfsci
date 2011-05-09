@@ -4,6 +4,7 @@ import os
 import glob
 import json
 from tasklib import Attribute, Utility
+from joblib import Job, get_job_session
 
 os.chdir(Utility.get_source_dir())
 
@@ -17,12 +18,38 @@ try:
 except OSError:
 	pass
 
+config = Utility.get_zfsci_config()
+
+count = 0
+
+job_session = get_job_session()
+
 jobdescs = Attribute.get_jobdescs()
 for jobdesc in jobdescs:
+	job = Job.find_by_hash(job_session, jobdesc['job_id'])
+
+	if job != None:
+		retry_job = False
+		min_ts = None
+		for result in job.results:
+			if min_ts == None or time() - result.timestamp < min_ts:
+				min_ts = result.timestamp
+
+			if result.count_errors() > 0:
+				retry_job = True
+
+		if min_ts != None and time() - min_ts < config['job_retry_interval']:
+			retry_job = False
+
+		if not retry_job:
+			continue
+
 	fp = open('build/jobs/%s.json' % (jobdesc['job_id']), 'w')
 	json.dump(jobdesc, fp)
 	fp.close()
 
-print 'Successfully built %d job descriptions.' % (len(jobdescs))
+	count += 1
+
+print 'Successfully built %d job descriptions.' % count
 
 sys.exit(0)

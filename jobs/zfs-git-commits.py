@@ -6,7 +6,7 @@ class ZFSGitCommitsAttribute(Attribute):
 	name = "zfs-git-commit"
 	description = "ZFS git commits"
 
-	interval = 7 * 24 * 60 * 60
+	interval = 21 * 24 * 60 * 60
 	granularity = 2 * 60 * 60
 
 	def get_values(self):

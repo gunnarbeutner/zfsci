@@ -1,0 +1,5 @@
+#!/usr/bin/env python2.6
+from joblib import get_job_session, process_results
+
+session = get_job_session()
+process_results(session)

@@ -4,7 +4,7 @@ import sys
 from tasklib import Utility
 
 if len(sys.argv) < 2:
-	print "Syntax: %s <parameter>" % (sys.argv[0])
+	print "Syntax: %s <parameter> [dict-key]" % (sys.argv[0])
 	sys.exit(1)
 
 key = sys.argv[1]
@@ -12,7 +12,14 @@ key = sys.argv[1]
 config = Utility.get_zfsci_config()
 
 if key in config:
-	print config[key]
+	if len(sys.argv) > 2:
+		subkey = sys.argv[2]
+
+		if subkey in config[key]:
+			print config[key][subkey]
+	else:
+		print config[key]
+
 	sys.exit(0)
 else:
 	sys.exit(1)

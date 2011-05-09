@@ -51,7 +51,7 @@ default linux
 
 label linux
 	kernel $TFTP_PATH/kernel
-	append root=/dev/nfs initrd=$TFTP_PATH/initrd netboot=nfs ro nfsroot=$NFS_ROOT_PATH,v3,udp ip=dhcp panic=300 aufs=tmpfs
+	append root=/dev/nfs initrd=$TFTP_PATH/initrd netboot=nfs ro nfsroot=$NFS_ROOT_PATH,v3 ip=dhcp panic=300 aufs=tmpfs
 PXELINUX
 
 zfsci_echo -n "Copying kernel and modules... "
@@ -145,7 +145,7 @@ zfsci_echo "DONE"
 zfsci_echo -n "Setting up fstab..."
 NFS_PERSISTENT_PATH=`scripts/zfsci-get-config nfs_persistent_path`
 cat > build/nfsroot/etc/fstab <<FSTAB
-$NFS_PERSISTENT_PATH	/var/lib/zfsci-data	nfs	v3,udp	0	0
+$NFS_PERSISTENT_PATH	/var/lib/zfsci-data	nfs	v3	0	0
 FSTAB
 
 # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=434570

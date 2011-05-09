@@ -4,7 +4,7 @@ import traceback
 from time import time
 import hashlib
 import itertools
-import inspect
+import uuid
 
 class Task(object):
 	description = ""
@@ -277,6 +277,9 @@ class JobConfig(object):
 		fp = open(configfile, 'r')
 		JobConfig._config = json.load(fp)
 		fp.close()
+
+		if not 'result_id' in JobConfig._config:
+			JobConfig._config['result_id'] = uuid.uuid4().hex
 
 	@staticmethod
 	def save():
