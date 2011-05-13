@@ -1,4 +1,4 @@
-from tasklib import Task
+from tasklib import Attribute
 
 class FSTypeAttribute(Attribute):
 	name = "fs-type"

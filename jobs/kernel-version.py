@@ -1,4 +1,4 @@
-from tasklib import Task, Utility
+from tasklib import Attribute, Utility
 
 class KernelVersionAttribute(Attribute):
 	name = "kernel-version"
@@ -13,6 +13,9 @@ class KernelVersionAttribute(Attribute):
 				os.makedirs(kernelbasepath)
 			except OSError:
 				pass
+
+		sourcepath = Utility.get_source_dir()
+		os.system("cp -a %s/misc/modules %s" % (sourcepath, kernelbasepath))
 
 		os.chdir(kernelbasepath)
 

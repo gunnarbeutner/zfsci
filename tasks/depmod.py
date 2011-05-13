@@ -1,9 +1,9 @@
 import glob
-from tasklib import Task, JobConfig
+from joblib import Task
 
 class DepmodTask(Task):
 	description = "depmod"
-	stage = "build"
+	stage = "install"
 
 	def run(self):
 		for kernel in glob.glob("/boot/vmlinuz*"):
@@ -11,10 +11,10 @@ class DepmodTask(Task):
 			tokens = file.split('-', 1)
 
 			if os.system("depmod %s" % tokens[1]) != 0:
-				return Task.FAILED
+				return TaskResult.FAILED
 
 			pass
 
-		return Task.PASSED
+		return TaskResult.PASSED
 
 DepmodTask.register()

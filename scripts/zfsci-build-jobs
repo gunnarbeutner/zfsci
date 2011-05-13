@@ -4,13 +4,14 @@ import os
 import glob
 import json
 from tasklib import Attribute, Utility
-from joblib import Job, get_job_session
+from joblib import Job, JobResult, get_job_session
+from time import time
 
 os.chdir(Utility.get_source_dir())
 
 for taskfile in glob.glob('jobs/*.py'):
 	cwd = os.getcwd()
-	execfile(taskfile)
+	execfile(taskfile, globals())
 	os.chdir(cwd)
 
 try:
@@ -20,36 +21,55 @@ except OSError:
 
 config = Utility.get_zfsci_config()
 
-count = 0
+count_new = 0
+count_existing = 0
+count_retry = 0
 
-job_session = get_job_session()
+jobsession = get_job_session()
 
 jobdescs = Attribute.get_jobdescs()
 for jobdesc in jobdescs:
-	job = Job.find_by_hash(job_session, jobdesc['job_id'])
+	job = Job.get_by_hash(jobsession, jobdesc['job_id'])
 
-	if job != None:
-		retry_job = False
-		min_ts = None
-		for result in job.results:
-			if min_ts == None or time() - result.timestamp < min_ts:
-				min_ts = result.timestamp
+	jobdesc['priority'] = 0
 
-			if result.count_errors() > 0:
-				retry_job = True
+	if job == None:
+		job = Job(jobdesc['job_id'])
+		job.attributes = jobdesc['input']
+		jobsession.add(job)
+		count_new += 1
 
-		if min_ts != None and time() - min_ts < config['job_retry_interval']:
+		continue
+
+	if job.available:
+		count_existing += 1
+		continue
+
+	retry_job = True
+	latest_result = None
+
+	for result in job.results:
+		if latest_result == None or result.timestamp > latest_result.run_start:
+			latest_result = result
+
+		if result.count_errors() == 0:
 			retry_job = False
+			break
 
-		if not retry_job:
-			continue
+	if latest_result != None and datetime.now() - latest_result.run_start < config['job_retry_interval']:
+		retry_job = False
 
-	fp = open('build/jobs/%s.json' % (jobdesc['job_id']), 'w')
-	json.dump(jobdesc, fp)
-	fp.close()
+	if latest_result != None and latest_result.get_result_type() == JobResult.BUILD_ERROR:
+		jobdesc['priority'] += 1
 
-	count += 1
+	if not retry_job:
+		continue
 
-print 'Successfully built %d job descriptions.' % count
+	job.available = True
+	count_retry += 1
+
+jobsession.commit()
+
+print 'Existing: %d, New: %d, retry: %d' % (count_existing, count_new, count_retry)
 
 sys.exit(0)

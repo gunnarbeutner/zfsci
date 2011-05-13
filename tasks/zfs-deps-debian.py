@@ -1,4 +1,4 @@
-from tasklib import Task, JobConfig
+from joblib import Task, TaskResult
 
 class ZFSDepDebianTask(Task):
 	description = "ZFS dependencies installation"
@@ -7,12 +7,12 @@ class ZFSDepDebianTask(Task):
 	provides = ['zfs-builddeps']
 
 	def run(self):
-		if JobConfig.get_input('fs-type') != 'zfs' or JobConfig.get_input('distribution') != 'debian':
-			return Task.SKIPPED
-
 		if os.system("aptitude install -y git-core module-assistant uuid-dev zlib1g-dev gawk") != 0:
-			return Task.FAILED
+			return TaskResult.FAILED
 
-		return Task.PASSED
+		return TaskResult.PASSED
+
+	def should_run(self):
+		return (self.job.attributes['fs-type'] == 'zfs' and self.job.attributes['distribution'] == 'debian')
 
 ZFSDepDebianTask.register()

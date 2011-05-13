@@ -16,6 +16,7 @@ CONTROLPASS=`./zfsci-get-config power_password`
 
 PORT=$1
 
+# reset the host using the IP power strip's "kshell" interface
 telnet $CONTROLHOST $CONTROLPORT >/dev/null 2>&1 <<COMMANDS
 login $CONTROLUSER $CONTROLPASS
 port $PORT int

@@ -1,5 +1,6 @@
 import os
-from tasklib import Task, Utility
+import subprocess
+from tasklib import Attribute, Utility
 
 class ZFSGitRepoAttribute(Attribute):
 	name = "zfs-git-repo"
@@ -7,11 +8,11 @@ class ZFSGitRepoAttribute(Attribute):
 
 	def get_values(self):
 		repositories = [
-			None,
 			{
 				'name': 'behlendorf',
 				'spl': 'git://github.com/behlendorf/spl.git',
-				'zfs': 'git://github.com/behlendorf/zfs.git'
+				'zfs': 'git://github.com/behlendorf/zfs.git',
+				'zfs-ignore-branches': ['gh-pages']
 			},
 			{
 				'name': 'gunnarbeutner',
@@ -33,26 +34,45 @@ class ZFSGitRepoAttribute(Attribute):
 
 		values = [None]
 		for repository in repositories:
-			if repository == None:
-				continue
-
 			for subrepo in ['spl', 'zfs']:
 				repodir = '%s-%s' % (repository['name'], subrepo)
 				repopath = repobasepath + '/' + repodir
 
 				if not os.path.isdir(repopath):
+					os.chdir(repobasepath)
 					os.system('git clone --mirror %s %s' % (repository[subrepo], repopath))
 
-				os.system('GIT_DIR=%s git fetch' % (repopath))
+				os.chdir(repopath)
+				os.system('git fetch')
 
-			# TODO: list branches
-			value = {
-				'spl': '%s-spl' % (repository['name']),
-				'zfs': '%s-zfs' % (repository['name']),
-				'branch': 'master'
-			}
+				args = ['git', 'for-each-ref', '--format=%(refname:short)', 'refs/heads/']
+				output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
+				branches = output.strip().split('\n')
 
-			values.append(value)
+				for branch in branches:
+					if subrepo + '-ignore-branches' in repository and \
+							branch in repository[subrepo + '-ignore-branches']:
+						continue
+
+					args = ['git', 'rev-list', '--max-count=5', '--timestamp', branch]
+					output = subprocess.Popen(args, stdout=subprocess.PIPE).communicate()[0]
+
+					commits = output.strip().split('\n')
+
+					for commitinfo in commits:
+						(timestamp, commit) = commitinfo.split(' ', 1)
+
+						value = {
+							'spl-repository': '%s-spl' % (repository['name']),
+							'zfs-repository': '%s-zfs' % (repository['name']),
+							'spl-branch': 'master',
+							'zfs-branch': 'master',
+							'timestamp': timestamp
+						}
+
+						value[subrepo + '-branch'] = branch
+
+						values.append(value)
 
 		return values
 

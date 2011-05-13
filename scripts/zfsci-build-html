@@ -4,7 +4,7 @@ import os
 import json
 import cgi
 from datetime import datetime
-from joblib import Job, get_job_session
+from joblib import Job, JobResult, get_job_session
 
 if len(sys.argv) < 2:
 	print "Syntax: %s <output-dir>" % (sys.argv[0])
@@ -64,28 +64,59 @@ for job in jobs:
 <h2>Job</h2>
 <a href="../jobs/%s.html">%s</a>
 
-<h2>Tasks</h2>
-""" % (result.hash, result.hash, job.hash, job.hash))
+<h2>General Information</h2>
+<table>
+  <tr>
+    <td>Time:</td>
+    <td>%s - %s (%s)</td>
+  </tr>
+</table>
 
-		for (task, taskinfo) in result.attributes.iteritems():
+<h2>Tasks</h2>
+""" % (result.hash, result.hash, job.hash, job.hash, \
+	result.run_start, '?' if result.run_end == None else result.run_end, \
+	'incomplete' if result.run_end == None else result.run_end - result.run_start))
+
+		for taskresult in result.taskresults:
 			rfp.write("""
 <h3>Task %s</h3>
+<table>
+  <tr>
+    <td>Stage:</td>
+    <td>%s</td>
+  </tr>
+  <tr>
+    <td>Time:</td>
+    <td>%s - %s (%s)</td>
+  </tr>
+  <tr>
+    <td>Status:</td>
+    <td>%s</td>
+  </tr>
+</table>
+""" % (cgi.escape(taskresult.name), taskresult.stage, \
+	'?' if taskresult.run_start == None else taskresult.run_start, '?' if taskresult.run_end == None else taskresult.run_end, \
+	'incomplete' if taskresult.run_end == None else taskresult.run_end - taskresult.run_start, \
+	taskresult.status))
+
+			if len(taskresult.attributes) > 0:
+				rfp.write("""
 <table>
   <tr>
     <th>Parameter</th>
     <th style="text-align: left;">Value</th>
   </tr>
-""" % (cgi.escape(task)))
+""")
 
-			for (key, value) in taskinfo.iteritems():
-				rfp.write("""
+				for (key, value) in taskresult.attributes.iteritems():
+					rfp.write("""
   <tr>
     <td style="vertical-align: top;">%s</td>
     <td style="vertical-align: top;"><pre>%s</pre></td>
   </tr>
 """ % (cgi.escape(str(key)), cgi.escape(str(value))))
 
-			rfp.write("""
+				rfp.write("""
 </table>
 """)
 
@@ -100,98 +131,184 @@ for job in jobs:
 
 	jfp.close()
 
-print """
+mfp = open(resultdir + '/zfsci.html', 'w')
+
+mfp.write("""
 <html>
 <head>
 	<title>ZFSCI results</title>
 </head>
 <body>
 
-<table>
-"""
+<h1>ZFSCI</h1>
 
-jobs = Job.find_all(session)
+<h2>Legend</h2>
+
+<table>
+  <tr>
+    <th style="background-color: red; width: 50px;" />
+    <td>Build error</td>
+  </tr>
+  <tr>
+    <th style="background-color: orange;" />
+    <td>Build system problem</td>
+  </tr>
+  <tr>
+    <th style="background-color: chartreuse;" />
+    <td>Successful build</td>
+  </tr>
+</table>
+
+""")
 
 timestamps = []
 
+def find_branch_combinations(jobs):
+	results = set()
+
+	for job in jobs:
+		if job.attributes['zfs-git-repo'] == None:
+			continue
+
+		result = (job.attributes['zfs-git-repo']['zfs-repository'], \
+			job.attributes['zfs-git-repo']['spl-branch'], \
+			job.attributes['zfs-git-repo']['zfs-branch'])
+
+		results.add(result)
+
+	return results
+
 def get_timestamp(job):
-	return job.attributes['zfs-git-commit']
-
-for job in jobs:
-	timestamp = get_timestamp(job)
-
-	if timestamp != None and timestamp not in timestamps:
-		timestamps.append(timestamp)
-
-timestamps = reversed(sorted(timestamps))
+	return int(job.attributes['zfs-git-repo']['timestamp'])
 
 def get_host(job):
 	return job.attributes['distribution'] + ' ' + job.attributes['kernel-version']
 
-hosts = []
+def get_result_color(result):
+	type = result.get_result_type()
 
-for job in jobs:
-	host = get_host(job)
+	if type == JobResult.SYSTEM_ERROR:
+		return 'orange'
+	elif type == JobResult.BUILD_ERROR:
+		return 'red'
+	else:
+		return 'chartreuse'
 
-	if host not in hosts:
-		hosts.append(host)
+def build_branch_table(fp, jobs, repository, splbranch, zfsbranch):
+	fp.write("""
+<table>
+  <tr>
+    <th>Repository</th>
+    <td>%s</td>
+  </tr>
+  <tr>
+    <th>SPL branch</th>
+    <td>%s</td>
+  </tr>
+  <tr>
+    <th>ZFS branch</th>
+    <td>%s</td>
+  </tr>
+</table>
+""" % (repository, splbranch, zfsbranch))
 
-hosts = sorted(hosts)
+	def filter_job(job):
+		if job.attributes['zfs-git-repo'] == None:
+			return False
 
-print """
+		if job.attributes['zfs-git-repo']['zfs-repository'] != repository:
+			return False
+
+		if job.attributes['zfs-git-repo']['spl-branch'] != splbranch or \
+				job.attributes['zfs-git-repo']['zfs-branch'] != zfsbranch:
+			return False
+
+		return True
+
+	jobs = filter(filter_job, jobs)
+
+	hosts = []
+	cells = {}
+
+	for job in jobs:
+		host = get_host(job)
+
+		if host not in hosts:
+			hosts.append(host)
+
+		timestamp = get_timestamp(job)
+
+		if not timestamp in cells:
+			cells[timestamp] = []
+
+		cells[timestamp].append(job)
+
+	hosts = sorted(hosts)
+
+	fp.write("""
+<table>
 <tr>
   <td>Timestamp / Host</td>
-"""
-
-for host in hosts:
-	print '<td>' + host + '</td>'
-
-print """
-</tr>
-"""
-
-for timestamp in timestamps:
-	print """
-<tr>
-  <td>%s</td>
-""" % (datetime.fromtimestamp(timestamp))
+""")
 
 	for host in hosts:
-		result = None
+		fp.write('<td>' + host + '</td>')
 
-		for job in Job.find_all(session):
-			if get_timestamp(job) != timestamp or get_host(job) != host:
+	fp.write("""
+</tr>
+""")
+
+	for timestamp in reversed(sorted(set(map(get_timestamp, jobs)))):
+		fp.write("""
+<tr>
+  <td>%s</td>
+""" % (datetime.fromtimestamp(timestamp)))
+
+		for host in hosts:
+			result = None
+
+			for job in cells[timestamp]:
+				if get_host(job) != host:
+					continue
+
+				best_result = None
+				for result in job.results:
+					if result.count_errors() == 0:
+						best_result = result
+						break
+
+					if best_result == None or result.timestamp > best_result.timestamp:
+						best_result = result
+				result = best_result
+
+				break
+
+			if result == None:
+				mfp.write('<td>&#8212;</td>') # Unicode EM DASH
 				continue
 
-			if job.attributes['zfs-git-repo']['spl'] != 'behlendorf-spl':
-				continue
+			errors = result.count_errors()
 
-			max_ts = None
-			for result in job.results:
-				if max_ts == None or result.timestamp > max_ts.timestamp:
-					max_ts = result
-			result = max_ts
-
-			break
-
-		if result == None:
-			print '<td>&#8212;</td>' # Unicode EM DASH
-			continue
-
-		errors = result.count_errors()
-
-		print """
+			fp.write("""
 <td style="background-color: %s;">
   <a href="results/%s.html">
     %d errors
   </a>
-</td>""" % ('red' if errors > 0 else 'chartreuse', result.hash, errors)
+</td>""" % (get_result_color(result), result.hash, errors))
 
-	print '</tr>'
+		fp.write('</tr>')
 
-print """
+	fp.write("""
 </table>
 
 </body>
 </html>
-"""
+""")
+
+mfp.write("<h2>Test results</h2>")
+
+for branch_combination in find_branch_combinations(jobs):
+	build_branch_table(mfp, jobs, branch_combination[0], branch_combination[1], branch_combination[2])
+	mfp.write("<br /><br />")
+
+mfp.close()

@@ -1,35 +1,21 @@
 #!/bin/sh
-[ -e /tmp/zfsci-picked-job ] && exit 0
+exec 9>/tmp/zfsci-job-lock
+if ! flock -x 9; then
+	exit 1
+fi
 
-echo "Picking job for node..."
-
-for file in /var/lib/zfsci-data/jobs/*; do
-	if [ ! -e $file ]; then
-		continue
-	fi
-
-	if ! mv $file /tmp/zfsci-job.json; then
-		continue
-	fi
-
-	touch /tmp/zfsci-picked-job
-
-	echo "Picked job: `basename $file`"
-
-	if ! /opt/zfsci/zfsci-install-node /tmp/zfsci-job.json; then
-		exit 1
-	fi
-
-	if ! /opt/zfsci/zfsci-configure-node /tmp/zfsci-job.json; then
-		exit 1
-	fi
-
-	if ! /opt/zfsci/zfsci-boot-node; then
-		exit 1
-	fi
-
+if [ -e /tmp/zfsci-picked-job ]; then
 	exit 0
-done
+fi
 
-echo "No jobs found."
-exit 1
+if ! /opt/zfsci/zfsci-install-node DESTROY; then
+	exit 1
+fi
+
+touch /tmp/zfsci-picked-job
+
+if ! /opt/zfsci/zfsci-boot-node; then
+	exit 1
+fi
+
+exit 0

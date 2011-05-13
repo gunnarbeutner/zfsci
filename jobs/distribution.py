@@ -1,4 +1,5 @@
-from tasklib import Task, Utility
+from joblib import Task
+from tasklib import Attribute, Utility
 
 class DistributionAttribute(Attribute):
 	name = "distribution"

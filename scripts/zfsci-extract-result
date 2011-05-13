@@ -1,30 +1,32 @@
-#!/bin/sh
-if ! cd `dirname $0`; then
-	echo "Could not cd to scripts directory."
-	exit 1
-fi
+#!/usr/bin/env python2.6
+import os
+import sys
+from datetime import datetime
+from joblib import get_job_session, JobResult
+from partlib import PartitionBuilder
 
-# try and mount the / file system
-if ! ./zfsci-mount-node; then
-	echo "Node root FS could not be mounted."
-	exit 1
-fi
+PartitionBuilder.mount_partitions()
 
-if [ ! -e /mnt/.zfsci ]; then
-	echo "There are no test results on this device."
-	exit 1
-fi
+if not os.path.isfile('/mnt/.zfsci'):
+	print 'There are no test results on this device.'
+	sys.exit(1)
 
-# mark the tests as 'finished'
-rm -f /mnt/.zfsci
+# mark tests as finished
+os.unlink('/mnt/.zfsci')
 
-# run post tasks
-chroot /mnt /opt/zfsci/zfsci-run-stage /var/lib/zfsci-data/tasks post /var/lib/zfsci/job.json
+if os.system('chroot /mnt /opt/zfsci/zfsci-run-stage post'):
+	print 'Could not run post scripts.'
+	sys.exit(1)
 
-# copy results
-TESTID=`date +%s`
-RESULTDIR=/var/lib/zfsci-data/results/result-$TESTID
-mkdir -p $RESULTDIR
-cp -a /mnt/var/lib/zfsci/* $RESULTDIR
+jobsession = get_job_session()
+jobresult = JobResult.get_configured_jobresult(jobsession, False)
 
-exit 0
+if jobresult != None:
+	jobresult.run_end = datetime.now()
+
+jobsession.commit()
+
+# TODO: figure out what to do with kernel crash dumps and other
+# files in the results dir - for now we just ignore them
+
+sys.exit(0)

@@ -2,39 +2,63 @@
 import sys
 import os
 import shutil
-from tasklib import Utility, JobConfig
+import glob
+from joblib import get_job_session, Job, JobResult
+from tasklib import Utility
 from partlib import PartitionBuilder
 
 os.chdir(Utility.get_scripts_dir())
 
-if len(sys.argv) < 2:
-	print "Syntax: %s <configfile>" % (sys.argv[0])
+if len(sys.argv) < 2 or sys.argv[1] != 'DESTROY':
+	print "Syntax: %s DESTROY" % (sys.argv[0])
 	sys.exit(1)
 
-configfile = sys.argv[1]
+jobsession = get_job_session()
 
-if not os.path.isfile(configfile):
-	print 'Config file "%s" does not exist.' % (configfile)
+job = Job.pick_job(jobsession)
+
+if job == None:
+	print 'No jobs found.'
 	sys.exit(1)
 
-JobConfig.load(configfile)
+jobresult = JobResult(job)
+jobsession.add(jobresult)
 
 PartitionBuilder.unmount_partitions()
 PartitionBuilder.setup_partitions()
 PartitionBuilder.mount_partitions()
 
-distimage = '/var/lib/zfsci-data/dists/%s.tar.gz' % (JobConfig.get_input('distribution'))
+persistent_dir = Utility.get_persistent_dir()
 
-if os.system("tar Cxfzv /mnt %s" % (distimage)) != 0:
+# install distribution
+distimage = '%s/dists/%s.tar.gz' % (persistent_dir, job.attributes['distribution'])
+if os.system("tar Cxfz /mnt %s" % (distimage)) != 0:
 	print "Could not extract distribution image."
 	sys.exit(1)
 
 # install kernel
-kerneldir = "%s/kernels/%s/" % (Utility.get_persistent_dir(), JobConfig.get_input('kernel-version'))
+kerneldir = "%s/kernels/%s/" % (Utility.get_persistent_dir(), job.attributes['kernel-version'])
 
 if os.system("dpkg -i %s/*_all* %s/*_amd64*" % (kerneldir, kerneldir)) != 0:
 	print "Could not install kernel."
 	sys.exit(1)
+
+# install additional modules
+moduledir = "%s/kernels/modules/%s/" % (Utility.get_persistent_dir(), job.attributes['kernel-version'])
+
+for installdir in glob.glob("/lib/modules/*%s*" % (job.attributes['kernel-version'])):
+	try:
+		os.makedirs("%s/updates/zfsci" % (installdir))
+	except OSError:
+		pass
+
+	if len(glob.glob("%s/*" % (moduledir))) == 0:
+		continue
+
+	# we'll run depmod later on, so for now just copying the modules is enough
+	if os.system("cp -a %s/*.ko %s/updates/zfsci" % (moduledir, installdir)) != 0:
+		print "Could not install kernel modules."
+		sys.exit(1)
 
 if os.system("cp -a /boot/* /mnt/boot/") != 0 or \
 		os.system("cp -a /lib/modules/* /mnt/lib/modules/") != 0 or \
@@ -44,35 +68,59 @@ if os.system("cp -a /boot/* /mnt/boot/") != 0 or \
 	print "Could not copy kernel to chroot."
 	sys.exit(1)
 
-# mark tests as 'in progress'
-open("/mnt/.zfsci", "w").close()
-
+# set hostname
 fp = open("/mnt/etc/hostname", "w")
 fp.write("zfsci-node")
 fp.close()
 
 config = Utility.get_zfsci_config()
 
+# set up fstab
 fp = open("/mnt/etc/fstab", "w")
 fp.write("""%s	/			ext3	defaults	0	0
 %s	none			swap	sw		0	0
-%s	/var/lib/zfsci-data	nfs	ro		0	0
+%s	%s			nfs	ro		0	0
 """ % \
-(PartitionBuilder.get_rootpart(), PartitionBuilder.get_swappart(), config['nfs_persistent_path']))
+(PartitionBuilder.get_rootpart(), PartitionBuilder.get_swappart(), config['nfs_persistent_path'], Utility.get_persistent_dir()))
 fp.close()
 
 # TODO: set root password
 
+# symlink zfsci scripts
+if not os.path.islink("/mnt/opt/zfsci"):
+	os.symlink("%s/scripts" % (persistent_dir), "/mnt/opt/zfsci")
+
+# set up auto-start for test scripts
 fp = open("/mnt/etc/rc.local", "w")
 fp.write("""#!/bin/sh
-[ -e /.zfsci ] && /opt/zfsci/zfsci-run-stage /var/lib/zfsci-data/tasks test /var/lib/zfsci/job.json
+if [ -e /.zfsci ]; then
+	/opt/zfsci/zfsci-run-stage test
+fi
 
 /opt/zfsci/zfsci-watchdog 120
 reboot
 
 exit 0""")
 fp.close()
-
 os.chmod("/mnt/etc/rc.local", 0755)
+
+# create result dir
+try:
+	os.makedirs('/mnt/' + Utility.get_result_dir())
+except OSError:
+	pass
+
+# set job ID
+jobresult.set_configured_jobresult(False)
+
+jobsession.commit()
+
+# run install tasks
+if os.system("chroot /mnt /opt/zfsci/zfsci-run-stage install") != 0:
+	print "Could not run build tasks."
+	sys.exit(1)
+
+# mark tests as 'in progress'
+open("/mnt/.zfsci", "w").close()
 
 sys.exit(0)

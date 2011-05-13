@@ -1,4 +1,4 @@
-from tasklib import Task, JobConfig
+from joblib import Task, TaskResult
 
 class ZFSDepsCentOSTask(Task):
 	description = "ZFS dependencies installation"
@@ -7,12 +7,12 @@ class ZFSDepsCentOSTask(Task):
 	provides = ['zfs-builddeps']
 
 	def run(self):
-		if JobConfig.get_input('fs-type') != 'zfs' or JobConfig.get_input('distribution') != 'centos':
-			return Task.SKIPPED
-
 		if os.system("yum install -y git-core zlib-devel e2fsprogs-devel") != 0:
-			return Task.FAILED
+			return TaskResult.FAILED
 
-		return Task.PASSED
+		return TaskResult.PASSED
+
+	def should_run(self):
+		return (self.job.attributes['fs-type'] == 'zfs' and self.job.attributes['distribution'] == 'centos')
 
 ZFSDepsCentOSTask.register()

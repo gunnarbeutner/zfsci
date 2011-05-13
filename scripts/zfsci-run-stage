@@ -2,30 +2,25 @@
 import sys
 import os
 import glob
-from tasklib import JobConfig, Dispatcher
+from joblib import get_job_session, JobResult, JobDispatcher
 
-if len(sys.argv) < 4:
-	print 'Syntax: %s <tasks-dir> <stage> <config-file>' % (sys.argv[0])
+if len(sys.argv) < 2:
+	print 'Syntax: %s <stage>' % (sys.argv[0])
 	sys.exit(1)
 
-tasksdir = sys.argv[1]
-stage = sys.argv[2]
+stage = sys.argv[1]
 
-if not os.path.isdir(tasksdir):
-	print 'Tasks dir "%s" does not exist.' % (tasksdir)
+jobsession = get_job_session()
+
+jobresult = JobResult.get_configured_jobresult(jobsession, True)
+
+if jobresult == None:
+	print 'Job result not found.'
 	sys.exit(1)
 
-configfile = sys.argv[3]
+dispatcher = JobDispatcher(jobresult)
+dispatcher.run_stage(stage)
 
-if not os.path.isfile(configfile):
-	print 'Config file "%s" does not exist.' % (configfile)
-	sys.exit(1)
-
-JobConfig.load(configfile)
-
-for taskfile in glob.glob('%s/*.py' % (tasksdir)):
-	execfile(taskfile)
-
-Dispatcher.run_stage(stage)
+jobsession.commit()
 
 sys.exit(0)

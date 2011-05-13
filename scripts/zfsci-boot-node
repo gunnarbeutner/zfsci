@@ -11,7 +11,7 @@ if os.system("mount -o remount,ro /mnt") != 0:
 if os.system("sync") != 0:
 	sys.exit(1)
 
-if os.system("kexec --command-line='root=%s ro crashkernel=128M' " % (PartitionBuilder.get_rootpart()) + \
+if os.system("kexec --command-line='root=%s ro crashkernel=128M@32M' " % (PartitionBuilder.get_rootpart()) + \
 		"--initrd=/mnt/initrd.img /mnt/vmlinuz") != 0:
 	sys.exit(1)
 

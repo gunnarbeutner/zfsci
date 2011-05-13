@@ -1,5 +1,5 @@
 import os
-from tasklib import Task, JobConfig
+from joblib import Task, TaskResult
 from partlib import PartitionBuilder
 
 class CreateZPoolTask(Task):
@@ -10,14 +10,12 @@ class CreateZPoolTask(Task):
 	provides = ['filesystem']
 
 	def run(self):
-		fs_type = JobConfig.get_input('fs-type')
-
-		if fs_type != 'zfs' and fs_type != 'zfs-fuse':
-			return Task.SKIPPED
-
 		if os.system("zpool create -f tank %s" % (PartitionBuilder.get_testpart())) != 0:
-			return Task.FAILED
+			return TaskResult.FAILED
 
-		return Task.PASSED
+		return TaskResult.PASSED
+
+	def should_run(self):
+		return (self.job.attributes['fs-type'] in ['zfs', 'zfs-fuse'])
 
 CreateZPoolTask.register()

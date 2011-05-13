@@ -1,6 +1,6 @@
 import os
 import glob
-from tasklib import Task
+from joblib import Task, TaskResult
 
 class BuildKernelTask(Task):
 	description = "Build Linux kernel"
@@ -12,29 +12,29 @@ class BuildKernelTask(Task):
 
 	def prepare(self):
 		# TODO: remove this
-		return Task.SKIPPED
+		return TaskResult.SKIPPED
 
 		os.chdir("/tank")
 
 		if os.system("wget -O - %s | tar xz" % (BuildKernelTask.KERNEL_URL)) != 0:
-			return Task.FAILED
+			return TaskResult.FAILED
 
 		for dir in glob.glob("linux-*"):
 			os.chdir(dir)
 			break
 
 		if os.system("make mrproper") != 0:
-			return Task.FAILED
+			return TaskResult.FAILED
 
 		if os.system("make allyesconfig") != 0:
-			return Task.FAILED
+			return TaskResult.FAILED
 
-		return Task.PASSED
+		return TaskResult.PASSED
 
 	def run(self):
 		if os.system("make -j 4") != 0:
-			return Task.FAILED
+			return TaskResult.FAILED
 
-		return Task.PASSED
+		return TaskResult.PASSED
 
 BuildKernelTask.register()

@@ -111,7 +111,7 @@ zfsci_echo "DONE"
 zfsci_echo -n "Installing utilities... "
 chroot build/nfsroot aptitude install -y kexec-tools debootstrap \
 	parted hdparm ntpdate nfs-client aufs-tools flock python \
-	initramfs-tools equivs
+	python-sqlalchemy python-mysqldb initramfs-tools equivs
 
 cat > build/nfsroot/wireless-crda <<PKG
 Section: misc
@@ -164,12 +164,16 @@ zfsci_echo "DONE"
 zfsci_echo -n "Setting up zfsci scripts... "
 cat > build/nfsroot/etc/rc.local <<RCLOCAL
 #!/bin/sh
-ntpdate pool.ntp.org >/dev/null 2>&1 &
+(
+	ntpdate pool.ntp.org
+	hwclock --systohc --utx
+) >/dev/null 2>&1 &
+
 /opt/zfsci/zfsci-extract-result
 /opt/zfsci/zfsci-pick-job
 
 cat >> /etc/crontab <<CRONTAB
-*/5	*	*	*	*	root	flock -x /tmp/zfs-pick-job-lock /opt/zfsci/zfsci-pick-job
+*/5	*	*	*	*	root	/opt/zfsci/zfsci-pick-job
 CRONTAB
 
 exit 0

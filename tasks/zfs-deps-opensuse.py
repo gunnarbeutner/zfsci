@@ -1,4 +1,4 @@
-from tasklib import Task, JobConfig
+from joblib import Task, TaskResult
 
 class ZFSDepsOpenSUSETask(Task):
 	description = "ZFS dependencies installation"
@@ -7,12 +7,12 @@ class ZFSDepsOpenSUSETask(Task):
 	provides = ['zfs-builddeps']
 
 	def run(self):
-		if JobConfig.get_input('fs-type') != 'zfs' or JobConfig.get_input('distribution') != 'opensuse':
-			return Task.SKIPPED
-
 		if os.system("zypper install -y git-core zlib-devel libuuid-devel") != 0:
-			return Task.FAILED
+			return TaskResult.FAILED
 
-		return Task.PASSED
+		return TaskResult.PASSED
+
+	def should_run(self):
+		return (self.job.attributes['fs-type'] == 'zfs' and self.job.attributes['distribution'] == 'opensuse')
 
 ZFSDepsOpenSUSETask.register()

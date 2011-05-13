@@ -1,5 +1,5 @@
 import os
-from tasklib import Task, JobConfig
+from joblib import Task, TaskResult
 from partlib import PartitionBuilder
 
 class CreateExtFSTask(Task):
@@ -9,13 +9,8 @@ class CreateExtFSTask(Task):
 	provides = ['filesystem']
 
 	def run(self):
-		fs_type = JobConfig.get_input('fs-type')
-
-		if not fs_type in ['ext2', 'ext3', 'ext4']:
-			return Task.SKIPPED
-
-		if os.system("mkfs.%s %s" % (fs_type, PartitionBuilder.get_testpart())) != 0:
-			return Task.FAILED
+		if os.system("mkfs.%s %s" % (self.job.attributes['fs-type'], PartitionBuilder.get_testpart())) != 0:
+			return TaskResult.FAILED
 
 		try:
 			os.mkdir("/tank")
@@ -23,8 +18,11 @@ class CreateExtFSTask(Task):
 			pass
 
 		if os.system("mount %s /tank" % (PartitionBuilder.get_testpart())) != 0:
-			return Task.FAILED
+			return TaskResult.FAILED
 
-		return Task.PASSED
+		return TaskResult.PASSED
+
+	def should_run(self):
+		return (self.job.attributes['fs-type'] in ['ext2', 'ext3', 'ext4'])
 
 CreateExtFSTask.register()
