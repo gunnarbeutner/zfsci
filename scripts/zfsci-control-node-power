@@ -4,8 +4,8 @@ if ! cd `dirname $0`; then
 	exit 1
 fi
 
-if [ -z "$1" ]; then
-	echo "Syntax: $0 <port>"
+if [ -z "$2" ]; then
+	echo "Syntax: $0 <port> <\"0\"|\"1\"|\"int\">"
 	exit 1
 fi
 
@@ -15,11 +15,12 @@ CONTROLUSER=`./zfsci-get-config power_username`
 CONTROLPASS=`./zfsci-get-config power_password`
 
 PORT=$1
+MODE=$2
 
 # reset the host using the IP power strip's "kshell" interface
 telnet $CONTROLHOST $CONTROLPORT >/dev/null 2>&1 <<COMMANDS
 login $CONTROLUSER $CONTROLPASS
-port $PORT int
+port $PORT $MODE
 quit
 COMMANDS
 

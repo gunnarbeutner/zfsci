@@ -3,9 +3,9 @@ import sys
 import os
 import glob
 import json
+from datetime import datetime
 from tasklib import Attribute, Utility
 from joblib import Job, JobResult, get_job_session
-from time import time
 
 os.chdir(Utility.get_source_dir())
 
@@ -27,6 +27,8 @@ count_retry = 0
 
 jobsession = get_job_session()
 
+pending_jobs = 0
+
 jobdescs = Attribute.get_jobdescs()
 for jobdesc in jobdescs:
 	job = Job.get_by_hash(jobsession, jobdesc['job_id'])
@@ -45,22 +47,23 @@ for jobdesc in jobdescs:
 		count_existing += 1
 		continue
 
-	retry_job = True
 	latest_result = None
 
 	for result in job.results:
-		if latest_result == None or result.timestamp > latest_result.run_start:
+		if latest_result == None or result.run_start > latest_result.run_start:
 			latest_result = result
 
-		if result.count_errors() == 0:
+	retry_job = True
+
+	if latest_result != None:
+		if latest_result.get_result_type() == JobResult.SUCCESS:
 			retry_job = False
-			break
 
-	if latest_result != None and datetime.now() - latest_result.run_start < config['job_retry_interval']:
-		retry_job = False
+		if datetime.now() - latest_result.run_start < config['job_retry_interval']:
+			retry_job = False
 
-	if latest_result != None and latest_result.get_result_type() == JobResult.BUILD_ERROR:
-		jobdesc['priority'] += 1
+		if latest_result.run_end == None:
+			pending_jobs += 1
 
 	if not retry_job:
 		continue
@@ -70,6 +73,26 @@ for jobdesc in jobdescs:
 
 jobsession.commit()
 
-print 'Existing: %d, New: %d, retry: %d' % (count_existing, count_new, count_retry)
+jobs_count = count_existing + count_new + count_retry + pending_jobs
+if jobs_count > 0:
+	# power on as many nodes as we need
+	nodes_needed = jobs_count
+	for power_port in config['nodes_ondemand_ports']:
+		if nodes_needed > 0:
+			power_mode = '1'
+
+			nodes_needed -= 1
+		else:
+			if pending_jobs:
+				# we can't turn off any nodes when there are any
+				# jobs in progress because we have no idea on which
+				# nodes they are running
+				break
+
+			power_mode = '0'
+
+		os.system("./scripts/zfsci-control-node-power %d %s" % (power_port, power_mode))
+
+print 'Existing/duplicate: %d, New: %d, retry: %d' % (count_existing, count_new, count_retry)
 
 sys.exit(0)
