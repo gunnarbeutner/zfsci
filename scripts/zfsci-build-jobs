@@ -24,10 +24,9 @@ config = Utility.get_zfsci_config()
 count_new = 0
 count_existing = 0
 count_retry = 0
+count_running = 0
 
 jobsession = get_job_session()
-
-pending_jobs = 0
 
 jobdescs = Attribute.get_jobdescs()
 for jobdesc in jobdescs:
@@ -63,7 +62,7 @@ for jobdesc in jobdescs:
 			retry_job = False
 
 		if latest_result.run_end == None:
-			pending_jobs += 1
+			count_running += 1
 
 	if not retry_job:
 		continue
@@ -73,26 +72,27 @@ for jobdesc in jobdescs:
 
 jobsession.commit()
 
-jobs_count = count_existing + count_new + count_retry + pending_jobs
-if jobs_count > 0:
-	# power on as many nodes as we need
-	nodes_needed = jobs_count
-	for power_port in config['nodes_ondemand_ports']:
-		if nodes_needed > 0:
-			power_mode = '1'
+#jobs_count = count_existing + count_new + count_retry + count_running
+#
+## power on as many nodes as we need
+#nodes_needed = jobs_count
+#for power_port in config['nodes_ondemand_ports']:
+#	if nodes_needed > 0:
+#		power_mode = '1'
+#
+#		nodes_needed -= 1
+#	else:
+#		if count_running > 0:
+#			# we can't turn off any nodes when there are
+#			# jobs in progress because we have no idea on which
+#			# nodes they are running
+#			break
+#
+#		power_mode = '0'
+#
+#	print "Changing power mode for port %d -> %s" % (power_port, 'on' if power_mode == '1' else 'off')
+#	os.system("./scripts/zfsci-control-node-power %d %s" % (power_port, power_mode))
 
-			nodes_needed -= 1
-		else:
-			if pending_jobs:
-				# we can't turn off any nodes when there are any
-				# jobs in progress because we have no idea on which
-				# nodes they are running
-				break
-
-			power_mode = '0'
-
-		os.system("./scripts/zfsci-control-node-power %d %s" % (power_port, power_mode))
-
-print 'Existing/duplicate: %d, New: %d, retry: %d' % (count_existing, count_new, count_retry)
+print 'Existing/duplicate: %d, New: %d, retry: %d, running: %d' % (count_existing, count_new, count_retry, count_running)
 
 sys.exit(0)

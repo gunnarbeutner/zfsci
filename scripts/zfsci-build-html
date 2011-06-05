@@ -3,8 +3,11 @@ import sys
 import os
 import json
 import cgi
+import shutil
 from datetime import datetime
-from joblib import Job, JobResult, get_job_session
+from joblib import Job, JobResult, TaskResult, get_job_session
+from tasklib import Utility
+from hashlib import md5
 
 if len(sys.argv) < 2:
 	print "Syntax: %s <output-dir>" % (sys.argv[0])
@@ -24,6 +27,23 @@ try:
 	os.makedirs(resultdir + '/results')
 except OSError:
 	pass
+
+try:
+	os.makedirs(resultdir + '/output')
+except OSError:
+	pass
+
+shutil.copy(Utility.get_source_dir() + '/misc/zfsci.png', resultdir)
+
+def taskresult_to_color(result):
+	status = result.status
+
+	if status in [TaskResult.DEPENDENCY_ERROR, TaskResult.PENDING, TaskResult.RUNNING]:
+		return 'orange'
+	elif status == TaskResult.FAILED:
+		return 'red'
+	else:
+		return 'green'
 
 # detailed job/result pages
 for job in jobs:
@@ -77,7 +97,15 @@ for job in jobs:
 	result.run_start, '?' if result.run_end == None else result.run_end, \
 	'incomplete' if result.run_end == None else result.run_end - result.run_start))
 
-		for taskresult in result.taskresults:
+		def cmp_end_time(x, y):
+			if x.run_end == None:
+				return 1
+			elif y.run_end == None:
+				return -1
+			else:
+				return cmp(x.run_end, y.run_end)
+
+		for taskresult in sorted(result.taskresults, cmp=cmp_end_time):
 			rfp.write("""
 <h3>Task %s</h3>
 <table>
@@ -91,13 +119,22 @@ for job in jobs:
   </tr>
   <tr>
     <td>Status:</td>
-    <td>%s</td>
+    <td style="background-color: %s;">%s</td>
   </tr>
-</table>
 """ % (cgi.escape(taskresult.name), taskresult.stage, \
 	'?' if taskresult.run_start == None else taskresult.run_start, '?' if taskresult.run_end == None else taskresult.run_end, \
 	'incomplete' if taskresult.run_end == None else taskresult.run_end - taskresult.run_start, \
-	taskresult.status))
+	taskresult_to_color(taskresult), taskresult.status))
+
+			if taskresult.run_end != None:
+				rfp.write("""
+  <tr>
+    <th>Output:</th>
+    <td><a href="../output/%d.html" target="_blank">open</a></td>
+  </tr>
+""" % (taskresult.id))
+			rfp.write("""
+</table>""")
 
 			if len(taskresult.attributes) > 0:
 				rfp.write("""
@@ -120,6 +157,24 @@ for job in jobs:
 </table>
 """)
 
+			taskoutputfile = resultdir + '/output/' + str(taskresult.id) + '.html'
+			if taskresult.run_end != None and not os.path.isfile(taskoutputfile):
+				tfp = open(taskoutputfile, 'w')
+				tfp.write("""
+<html>
+<head>
+  <title>Task output for '%s'</title>
+</head>
+<body>
+<h1>Task output for '%s'</h1>
+
+<p>Job result: <a href="../results/%s.html">%s</a></p>
+
+<pre>%s</pre>
+</body>
+</html>""" % (cgi.escape(taskresult.name), cgi.escape(taskresult.name), taskresult.jobresult.hash, taskresult.jobresult.hash, cgi.escape(taskresult.output)))
+				tfp.close()
+
 		rfp.close()
 
 	jfp.write("""
@@ -133,6 +188,11 @@ for job in jobs:
 
 mfp = open(resultdir + '/zfsci.html', 'w')
 
+available_job_count = 0
+for job in jobs:
+	if job.available:
+		available_job_count += 1
+
 mfp.write("""
 <html>
 <head>
@@ -140,7 +200,11 @@ mfp.write("""
 </head>
 <body>
 
-<h1>ZFSCI</h1>
+<img src="zfsci.png" alt="ZFSCI results" />
+
+<h2>Queue Status</h2>
+
+There are %d jobs in the queue.
 
 <h2>Legend</h2>
 
@@ -154,12 +218,16 @@ mfp.write("""
     <td>Build system problem</td>
   </tr>
   <tr>
-    <th style="background-color: chartreuse;" />
+    <th style="background-color: yellow;" />
+    <td>Build in progress</td>
+  </tr>
+  <tr>
+    <th style="background-color: green;" />
     <td>Successful build</td>
   </tr>
 </table>
 
-""")
+""" % (available_job_count))
 
 timestamps = []
 
@@ -182,9 +250,12 @@ def get_timestamp(job):
 	return int(job.attributes['zfs-git-repo']['timestamp'])
 
 def get_host(job):
-	return job.attributes['distribution'] + ' ' + job.attributes['kernel-version']
+	return job.attributes['distribution'] + '<br />' + job.attributes['kernel-version']
 
-def get_result_color(result):
+def jobresult_to_color(result):
+	if result.run_end == None:
+		return 'yellow'
+
 	type = result.get_result_type()
 
 	if type == JobResult.SYSTEM_ERROR:
@@ -192,11 +263,13 @@ def get_result_color(result):
 	elif type == JobResult.BUILD_ERROR:
 		return 'red'
 	else:
-		return 'chartreuse'
+		return 'green'
 
 def build_branch_table(fp, jobs, repository, splbranch, zfsbranch):
+        html_id = md5(repository + splbranch + zfsbranch).hexdigest()
+
 	fp.write("""
-<table>
+<table id="%s">
   <tr>
     <th>Repository</th>
     <td>%s</td>
@@ -210,7 +283,7 @@ def build_branch_table(fp, jobs, repository, splbranch, zfsbranch):
     <td>%s</td>
   </tr>
 </table>
-""" % (repository, splbranch, zfsbranch))
+""" % (html_id, repository, splbranch, zfsbranch))
 
 	def filter_job(job):
 		if job.attributes['zfs-git-repo'] == None:
@@ -273,11 +346,7 @@ def build_branch_table(fp, jobs, repository, splbranch, zfsbranch):
 
 				best_result = None
 				for result in job.results:
-					if result.count_errors() == 0:
-						best_result = result
-						break
-
-					if best_result == None or result.timestamp > best_result.timestamp:
+					if best_result == None or result.run_start > best_result.run_start:
 						best_result = result
 				result = best_result
 
@@ -294,7 +363,7 @@ def build_branch_table(fp, jobs, repository, splbranch, zfsbranch):
   <a href="results/%s.html">
     %d errors
   </a>
-</td>""" % (get_result_color(result), result.hash, errors))
+</td>""" % (jobresult_to_color(result), result.hash, errors))
 
 		fp.write('</tr>')
 

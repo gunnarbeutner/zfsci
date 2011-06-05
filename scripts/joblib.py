@@ -41,7 +41,8 @@ class Job(ModelBase):
 
 	hash = Column(String(32), primary_key=True)
 	priority = Column(Integer, nullable=False)
-	available = Column(Boolean, index=True)
+	available = Column(Boolean, nullable=False, index=True)
+	run_count = Column(Integer, nullable=False)
 	last_run = Column(DateTime, index=True)
 	attributes = deferred(Column(JsonString, nullable=False))
 
@@ -51,6 +52,7 @@ class Job(ModelBase):
 		self.hash = hash
 		self.priority = 0
 		self.available = True
+		self.run_count = 0
 		self.attributes = {}
 
 	@staticmethod
@@ -71,10 +73,14 @@ class Job(ModelBase):
 
 		bound_session = JobSession(bind=connection)
 
-		job = bound_session.query(Job).filter(Job.available == True).order_by(Job.last_run.asc(), Job.priority.asc()).first()
+		query = bound_session.query(Job).filter(Job.available == True)
+		query = query.order_by(Job.run_count.asc(), Job.last_run.asc(), Job.priority.asc())
+
+		job = query.first()
 
 		if job != None:
 			job.available = False
+			job.run_count += 1
 			job.last_run = datetime.now()
 
 		bound_session.commit()
@@ -152,11 +158,19 @@ class JobResult(ModelBase):
 		return errors
 
 	def get_result_type(self):
+		seen_test_stage = False
+
 		for taskresult in self.taskresults:
 			if taskresult.status in [TaskResult.PENDING, TaskResult.RUNNING]:
 				return JobResult.SYSTEM_ERROR
 			elif taskresult.status not in [TaskResult.PASSED, TaskResult.SKIPPED]:
 				return JobResult.BUILD_ERROR
+
+			if taskresult.stage == 'test':
+				seen_test_stage = True
+
+		if not seen_test_stage:
+			return JobResult.SYSTEM_ERROR
 
 		return JobResult.SUCCESS
 
@@ -247,6 +261,7 @@ class Task(object):
 		os.dup2(outputfp.fileno(), 2)
 
 		self.result.status = TaskResult.RUNNING
+		JobSession.object_session(self.result).commit()
 
 		try:
 			status = self.prepare()
